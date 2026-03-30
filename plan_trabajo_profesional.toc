@@ -1,0 +1,55 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{\numberline {1}Resumen Ejecutivo}{3}{section.1}%
+\contentsline {section}{\numberline {2}Estado Actual (AS-IS) y Supuestos Confirmados}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Comportamiento actual y restricciones}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Riesgos inmediatos del estado actual}{4}{subsection.2.2}%
+\contentsline {section}{\numberline {3}Vision, Objetivos y Principios}{4}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Vision}{4}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Objetivos estrategicos (12 meses)}{4}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Principios de producto e ingenieria}{4}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Alcance}{4}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Alcance en esta hoja de ruta}{4}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Fuera de alcance inicial}{5}{subsection.4.2}%
+\contentsline {section}{\numberline {5}Arquitectura Objetivo (TO-BE)}{5}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Modelo tecnico recomendado}{5}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Persistencia de sesion}{5}{subsection.5.2}%
+\contentsline {section}{\numberline {6}Roadmap por Etapas (Plan Maestro)}{6}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Etapa 0: Gobierno del proyecto y base profesional}{6}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Etapa 1: Refactor tecnico y modularizacion}{6}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Etapa 2: Canvas desktop responsivo serio}{6}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Etapa 3: Temporizador robusto y continuidad F5}{7}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}Etapa 4: Galeria diaria v1 con ranking social}{7}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}Etapa 5: Datos diarios y palabra global}{7}{subsection.6.6}%
+\contentsline {subsection}{\numberline {6.7}Etapa 6: Observabilidad y operacion}{8}{subsection.6.7}%
+\contentsline {subsection}{\numberline {6.8}Etapa 7: Preparacion para escalabilidad}{8}{subsection.6.8}%
+\contentsline {subsection}{\numberline {6.9}Etapa 8: Backlog evolutivo (no prioritario inicial)}{8}{subsection.6.9}%
+\contentsline {section}{\numberline {7}Backlog Priorizado Inicial}{8}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Epicas}{8}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Historias de usuario (muestra)}{9}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Criterios de aceptacion (ejemplos)}{9}{subsection.7.3}%
+\contentsline {section}{\numberline {8}Plan de Calidad}{9}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Estrategia de pruebas}{9}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Matriz minima de pruebas}{9}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Definicion de Done por historia}{9}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Plan de Documentacion}{10}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Documentos obligatorios}{10}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Cadencia de actualizacion}{10}{subsection.9.2}%
+\contentsline {section}{\numberline {10}Plan de Versionado, CI/CD y Entrega}{10}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Flujo de ramas recomendado}{10}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Politica de commits}{10}{subsection.10.2}%
+\contentsline {subsection}{\numberline {10.3}Pipeline CI minimo}{10}{subsection.10.3}%
+\contentsline {section}{\numberline {11}Seguridad, Privacidad y Abuso}{11}{section.11}%
+\contentsline {section}{\numberline {12}Matriz de Riesgos}{11}{section.12}%
+\contentsline {section}{\numberline {13}KPI y Metricas de Exito}{11}{section.13}%
+\contentsline {section}{\numberline {14}Plan de 30/60/90 dias}{11}{section.14}%
+\contentsline {subsection}{\numberline {14.1}Primeros 30 dias}{11}{subsection.14.1}%
+\contentsline {subsection}{\numberline {14.2}Dias 31 a 60}{11}{subsection.14.2}%
+\contentsline {subsection}{\numberline {14.3}Dias 61 a 90}{12}{subsection.14.3}%
+\contentsline {section}{\numberline {15}Organizacion y Rituales de Trabajo}{12}{section.15}%
+\contentsline {subsection}{\numberline {15.1}Roles minimos (aunque sea proyecto personal)}{12}{subsection.15.1}%
+\contentsline {subsection}{\numberline {15.2}Rituales recomendados}{12}{subsection.15.2}%
+\contentsline {section}{\numberline {16}Plan para capacidades futuras (movil y modo oscuro)}{12}{section.16}%
+\contentsline {subsection}{\numberline {16.1}Movil}{12}{subsection.16.1}%
+\contentsline {subsection}{\numberline {16.2}Modo oscuro}{12}{subsection.16.2}%
+\contentsline {section}{\numberline {17}Checklist de Implementacion Inmediata}{13}{section.17}%
+\contentsline {section}{\numberline {18}Conclusion}{13}{section.18}%

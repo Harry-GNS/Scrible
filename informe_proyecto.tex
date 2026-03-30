@@ -1,0 +1,111 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{parskip}
+
+\geometry{margin=2.5cm}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  pdftitle={Informe del proyecto The Daily Scribble},
+  pdfauthor={Harry \& EPN}
+}
+
+\title{Informe del Proyecto\\\large The Daily Scribble}
+\author{Harry \& EPN}
+\date{30 de marzo de 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Objetivo del proyecto}
+El objetivo de \textbf{The Daily Scribble} es ofrecer un espacio creativo y ligero para dibujar en sesiones cortas, sin presion y con enfoque diario. La aplicacion busca incentivar la practica constante mediante una \textit{palabra del dia}, un tiempo limite configurable y una experiencia de publicacion simple en una galeria local.
+
+\section{Que hace la aplicacion}
+La aplicacion permite que cualquier persona:
+\begin{itemize}[leftmargin=*]
+  \item Elija una sesion de dibujo de 1, 5, 10 o 15 minutos.
+  \item Dibuje sobre un lienzo usando multiples herramientas.
+  \item Firme su obra de manera opcional al momento de compartir.
+  \item Descargue su dibujo en formato PNG.
+  \item Visualice dibujos compartidos en una galeria con animacion fisica.
+\end{itemize}
+
+Ademas, el contenido es \textbf{efimero por dia}: el estado se asocia a la fecha actual y se reinicia cuando cambia el dia.
+
+\section{Funcionalidades principales}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Palabra diaria automatica}: se calcula en funcion de la fecha.
+  \item \textbf{Temporizador de sesion}: controla el tiempo restante y bloquea la edicion al finalizar.
+  \item \textbf{Herramientas de dibujo}: pincel, borrador, linea, rectangulo, circulo, bote de pintura y gotero.
+  \item \textbf{Control de edicion}: deshacer y rehacer por historial de estados del canvas.
+  \item \textbf{Gestion de color}: paleta base, selector personalizado y agregado de colores.
+  \item \textbf{Exportacion}: descarga de imagen en PNG con firma opcional.
+  \item \textbf{Galeria local}: visualizacion de resultados por duracion con motor fisico Matter.js.
+\end{itemize}
+
+\section{Como esta hecho (arquitectura tecnica)}
+El proyecto es una aplicacion web \textbf{estatica del lado del cliente} (sin backend), organizada en tres archivos:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{index.html}: define las vistas (inicio, galeria, preparacion, canvas) y los modales.
+  \item \textbf{style.css}: contiene el diseno visual, estilos responsivos y componentes de interfaz.
+  \item \textbf{app.js}: implementa toda la logica de negocio, dibujo, temporizador, persistencia y galeria.
+\end{itemize}
+
+\subsection{Flujo funcional}
+\begin{enumerate}[leftmargin=*]
+  \item El usuario entra a la vista de inicio.
+  \item Selecciona \textit{Empezar a Dibujar} y escoge una duracion.
+  \item Se activa la sesion de dibujo con temporizador.
+  \item Al terminar, puede firmar y compartir.
+  \item La obra se guarda en estado local y aparece en la galeria correspondiente.
+\end{enumerate}
+
+\subsection{Persistencia y estado}
+La aplicacion usa \texttt{localStorage} con una clave diaria para guardar:
+\begin{itemize}[leftmargin=*]
+  \item Fecha actual.
+  \item Palabra diaria.
+  \item Dibujos de galeria clasificados por duracion.
+\end{itemize}
+Esto permite mantener la experiencia de "obra del dia" sin servidor externo.
+
+\section{Tecnologias utilizadas}
+\begin{itemize}[leftmargin=*]
+  \item HTML5
+  \item CSS3
+  \item JavaScript (Vanilla)
+  \item Canvas API
+  \item Matter.js (cargado desde CDN)
+\end{itemize}
+
+\section{Ventajas del enfoque actual}
+\begin{itemize}[leftmargin=*]
+  \item Despliegue sencillo (ideal para GitHub Pages).
+  \item Sin dependencias de backend ni base de datos.
+  \item Rendimiento rapido en navegadores modernos.
+  \item Codigo facil de entender y mantener para un MVP.
+\end{itemize}
+
+\section{Posibles mejoras futuras}
+\begin{itemize}[leftmargin=*]
+  \item Galeria compartida real con backend y almacenamiento en la nube.
+  \item Sistema de cuentas o identidad persistente.
+  \item Compatibilidad PWA para uso offline.
+  \item Herramientas avanzadas (capas, texto, relleno inteligente).
+  \item Moderacion y filtros de contenido para galeria publica.
+\end{itemize}
+
+\section{Repositorio}
+Codigo fuente disponible en:
+\href{https://github.com/Harry-GNS/Scrible}{https://github.com/Harry-GNS/Scrible}
+
+\end{document}

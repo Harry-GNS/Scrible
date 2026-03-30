@@ -1,0 +1,490 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+
+\geometry{margin=2.2cm}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  pdftitle={Plan de Trabajo Profesional - The Daily Scribble},
+  pdfauthor={Harry \& EPN}
+}
+
+\setlist[itemize]{leftmargin=*}
+\setlist[enumerate]{leftmargin=*}
+
+\title{Plan de Trabajo Profesional\\\large The Daily Scribble}
+\author{Proyecto Personal con Enfoque Profesional}
+\date{30 de marzo de 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Resumen Ejecutivo}
+Este documento define un plan de trabajo integral para evolucionar \textbf{The Daily Scribble} como un proyecto de software serio, mantenible y escalable. El objetivo es profesionalizar el producto sin perder su esencia: dibujo diario rapido, creatividad sin friccion y galeria comunitaria efimera.
+
+La estrategia se apoya en cinco pilares:
+\begin{itemize}
+  \item Producto: alcance claro, prioridades y roadmap por etapas.
+  \item Ingenieria: arquitectura modular, estandares de codigo y calidad.
+  \item Operacion: procesos de versionado, CI/CD y manejo de incidencias.
+  \item Datos y metricas: monitoreo de uso, calidad y salud del sistema.
+  \item Documentacion: especificaciones vivas para reducir deuda tecnica.
+\end{itemize}
+
+\section{Estado Actual (AS-IS) y Supuestos Confirmados}
+A continuacion se consolida el estado funcional actual y las decisiones de producto expresadas por el equipo:
+
+\subsection{Comportamiento actual y restricciones}
+\begin{itemize}
+  \item El canvas debe ser responsivo al tamano de pantalla en PC (no movil por ahora).
+  \item Si el usuario cambia el tamano de ventana, el canvas se reescala.
+  \item No existe soporte de presion de lapiz.
+  \item Limite de historial: 4 estados (objetivo de producto para siguiente fase).
+  \item Gotero solo toma color del lienzo interno.
+  \item No existen capas (layers).
+  \item Palabra diaria proveniente de una lista de 100 palabras.
+  \item La palabra del dia es la misma para todos los usuarios.
+  \item Deben existir alertas visuales y contador visual.
+  \item El temporizador no se puede pausar.
+  \item Si el usuario refresca (F5), la sesion debe continuar.
+  \item Un usuario puede hacer mas de un dibujo si elige distinta duracion.
+  \item Galeria muestra un maximo de 30 dibujos por ahora.
+  \item No se pueden borrar dibujos.
+  \item Al clickear un dibujo en galeria, se expande y admite like/dislike.
+  \item Dibujos con mas likes tienen prioridad de visualizacion.
+  \item La galeria se limpia cada dia.
+  \item No se prioriza usabilidad movil en esta etapa.
+  \item No hay modo oscuro en esta etapa, pero se considera para roadmap.
+  \item No se requiere sistema de duelos ni logros.
+\end{itemize}
+
+\subsection{Riesgos inmediatos del estado actual}
+\begin{itemize}
+  \item Deuda tecnica por crecimiento de funcionalidades en un unico archivo JS.
+  \item Escalabilidad limitada de galeria al crecer volumen de dibujos.
+  \item Ausencia de backend real para ranking global robusto.
+  \item Riesgo de inconsistencias al recuperar estado tras refresco.
+\end{itemize}
+
+\section{Vision, Objetivos y Principios}
+\subsection{Vision}
+Construir una plataforma creativa diaria, simple y confiable, con experiencia cuidada en escritorio y bases tecnicas para escalar a comunidad real.
+
+\subsection{Objetivos estrategicos (12 meses)}
+\begin{enumerate}
+  \item Entregar experiencia de dibujo de escritorio estable, fluida y predecible.
+  \item Consolidar galeria diaria con orden por relevancia social (likes/dislikes).
+  \item Preparar arquitectura para trafico creciente sin reescritura total.
+  \item Institucionalizar practicas profesionales: QA, CI/CD, trazabilidad y documentacion.
+\end{enumerate}
+
+\subsection{Principios de producto e ingenieria}
+\begin{itemize}
+  \item Simplicidad primero, sin sacrificar robustez.
+  \item Decisiones guiadas por metricas y evidencia.
+  \item Seguridad y privacidad por defecto.
+  \item Documentacion como parte del entregable, no como anexo.
+  \item Evolucion incremental: pequenos pasos con valor real.
+\end{itemize}
+
+\section{Alcance}
+\subsection{Alcance en esta hoja de ruta}
+\begin{itemize}
+  \item Desktop-first responsivo.
+  \item Persistencia de sesion frente a refresco F5.
+  \item Galeria diaria con ranking por votos.
+  \item Limite de 30 items visibles y estrategia de crecimiento progresiva.
+  \item Gobierno de codigo y flujo profesional de entregas.
+\end{itemize}
+
+\subsection{Fuera de alcance inicial}
+\begin{itemize}
+  \item Aplicacion movil nativa o web optimizada para moviles.
+  \item Modo oscuro productivo completo.
+  \item Mecanicas de juego (duelos, logros, torneos).
+\end{itemize}
+
+\section{Arquitectura Objetivo (TO-BE)}
+\subsection{Modelo tecnico recomendado}
+\begin{itemize}
+  \item Frontend modular por dominios:
+  \begin{itemize}
+    \item modulo UI y vistas,
+    \item modulo motor de dibujo,
+    \item modulo temporizador,
+    \item modulo persistencia,
+    \item modulo galeria,
+    \item modulo votos/ranking.
+  \end{itemize}
+  \item Estado de aplicacion centralizado (store liviano con eventos).
+  \item Contratos de datos tipados y versionados (aunque sea JS, con esquema JSON).
+  \item Adaptador de almacenamiento para permitir migracion de localStorage a backend.
+\end{itemize}
+
+\subsection{Persistencia de sesion}
+Para cumplir continuidad tras F5, se define una entidad \texttt{drawingSession} con:
+\begin{itemize}
+  \item identificador de sesion,
+  \item duracion elegida,
+  \item timestamp de inicio,
+  \item segundos restantes,
+  \item snapshot del canvas,
+  \item palabra diaria,
+  \item estado de bloqueo por fin de tiempo.
+\end{itemize}
+
+Regla de recuperacion:
+\begin{enumerate}
+  \item Al iniciar app, leer sesion activa.
+  \item Recalcular tiempo restante con reloj real (no confiar solo en contador en memoria).
+  \item Si tiempo restante mayor a 0, restaurar lienzo y continuar.
+  \item Si tiempo restante menor o igual a 0, bloquear edicion y mostrar alerta visual.
+\end{enumerate}
+
+\section{Roadmap por Etapas (Plan Maestro)}
+\subsection{Etapa 0: Gobierno del proyecto y base profesional}
+\textbf{Duracion sugerida: 1 semana}
+
+\textbf{Objetivo}: establecer cimientos de gestion y calidad.
+
+\textbf{Entregables}:
+\begin{itemize}
+  \item Documento de vision y alcance versionado.
+  \item Convenciones de codigo y estilo.
+  \item Politica de ramas y estrategia de commits.
+  \item Plantillas de issue, bug report y pull request.
+  \item Definition of Ready (DoR) y Definition of Done (DoD).
+\end{itemize}
+
+\textbf{Criterio de salida}: todo cambio nuevo entra por PR con checklist de calidad.
+
+\subsection{Etapa 1: Refactor tecnico y modularizacion}
+\textbf{Duracion sugerida: 2 semanas}
+
+\textbf{Objetivo}: reducir deuda tecnica y preparar crecimiento.
+
+\textbf{Entregables}:
+\begin{itemize}
+  \item Separacion de \texttt{app.js} en modulos.
+  \item Capa de estado centralizada.
+  \item Tests base unitarios para utilidades criticas.
+  \item Logging funcional para eventos clave.
+\end{itemize}
+
+\textbf{Criterio de salida}: reduccion de complejidad ciclomatica y cobertura minima acordada.
+
+\subsection{Etapa 2: Canvas desktop responsivo serio}
+\textbf{Duracion sugerida: 2 semanas}
+
+\textbf{Objetivo}: experiencia de dibujo consistente en escritorio al redimensionar ventana.
+
+\textbf{Entregables}:
+\begin{itemize}
+  \item Algoritmo de resize preservando contenido del canvas.
+  \item Escalado proporcional segun area visible.
+  \item Limite de historial configurado en 4 estados.
+  \item Validacion de gotero restringido al lienzo.
+  \item Suite de pruebas de regresion visual minima.
+\end{itemize}
+
+\textbf{Criterio de salida}: sin perdida de dibujo en resize en escenarios definidos de QA.
+
+\subsection{Etapa 3: Temporizador robusto y continuidad F5}
+\textbf{Duracion sugerida: 2 semanas}
+
+\textbf{Objetivo}: hacer el temporizador confiable y persistente.
+
+\textbf{Entregables}:
+\begin{itemize}
+  \item Contador visual con estados (normal, advertencia, critico).
+  \item Alertas visuales por umbrales (por ejemplo 60s y 10s).
+  \item Sin opcion de pausa.
+  \item Continuidad de sesion tras refresco F5.
+  \item Bloqueo de dibujo al finalizar tiempo con feedback claro.
+\end{itemize}
+
+\textbf{Criterio de salida}: tasa de fallos de recuperacion de sesion menor al 1\% en pruebas.
+
+\subsection{Etapa 4: Galeria diaria v1 con ranking social}
+\textbf{Duracion sugerida: 3 semanas}
+
+\textbf{Objetivo}: consolidar exploracion de obras y priorizacion por votos.
+
+\textbf{Entregables}:
+\begin{itemize}
+  \item Listado con tope de 30 obras visibles.
+  \item Modal o vista expandida al clickear una obra.
+  \item Acciones like/dislike por obra.
+  \item Regla de orden: score de votos y desempate por recencia.
+  \item Restriccion de no borrado de dibujos.
+\end{itemize}
+
+\textbf{Criterio de salida}: ranking estable y UX clara en interaccion de voto.
+
+\subsection{Etapa 5: Datos diarios y palabra global}
+\textbf{Duracion sugerida: 1 semana}
+
+\textbf{Objetivo}: formalizar reglas diarias de contenido.
+
+\textbf{Entregables}:
+\begin{itemize}
+  \item Lista curada de 100 palabras versionada.
+  \item Regla deterministica para palabra del dia global.
+  \item Limpieza automatica de galeria por cambio de fecha.
+  \item Pruebas de borde en cambio de dia y zonas horarias.
+\end{itemize}
+
+\textbf{Criterio de salida}: todos los usuarios observan la misma palabra del dia bajo la misma fecha de referencia.
+
+\subsection{Etapa 6: Observabilidad y operacion}
+\textbf{Duracion sugerida: 2 semanas}
+
+\textbf{Objetivo}: operar con estandares de producto real.
+
+\textbf{Entregables}:
+\begin{itemize}
+  \item Telemetria de eventos funcionales (sin datos sensibles).
+  \item Dashboard de metricas clave.
+  \item Registro de errores con trazabilidad.
+  \item Flujo de release con versionado semantico.
+\end{itemize}
+
+\textbf{Criterio de salida}: capacidad de detectar, diagnosticar y priorizar fallos con evidencia.
+
+\subsection{Etapa 7: Preparacion para escalabilidad}
+\textbf{Duracion sugerida: 3 semanas}
+
+\textbf{Objetivo}: disenar transicion hacia backend para volumen alto.
+
+\textbf{Entregables}:
+\begin{itemize}
+  \item Documento de arquitectura de referencia (API, almacenamiento, cache).
+  \item Estrategia de paginacion de galeria y top-N por score.
+  \item Modelo de votos resistente a abuso basico.
+  \item Plan de migracion progresiva desde localStorage.
+\end{itemize}
+
+\textbf{Criterio de salida}: blueprint tecnico listo para implementacion sin incertidumbre mayor.
+
+\subsection{Etapa 8: Backlog evolutivo (no prioritario inicial)}
+\textbf{Duracion sugerida: continua}
+
+\textbf{Objetivo}: incorporar mejoras diferidas (movil, modo oscuro, etc.) de forma controlada.
+
+\textbf{Entregables}: RFCs de nuevas capacidades y prototipos validados.
+
+\section{Backlog Priorizado Inicial}
+\subsection{Epicas}
+\begin{enumerate}
+  \item E1: Motor de dibujo robusto desktop.
+  \item E2: Temporizador persistente y confiable.
+  \item E3: Galeria social diaria con ranking.
+  \item E4: Calidad, procesos y observabilidad.
+\end{enumerate}
+
+\subsection{Historias de usuario (muestra)}
+\begin{itemize}
+  \item HU-01: Como usuario desktop, quiero que el canvas se adapte al tamano de mi ventana sin perder mi dibujo.
+  \item HU-02: Como usuario, quiero que al refrescar F5 mi sesion siga donde quedo.
+  \item HU-03: Como usuario, quiero votar un dibujo con like/dislike al expandirlo.
+  \item HU-04: Como usuario, quiero ver primero los dibujos mejor valorados.
+  \item HU-05: Como usuario, quiero hacer mas de un dibujo si cambio la duracion.
+  \item HU-06: Como usuario, quiero alertas visuales cuando el tiempo este por terminar.
+\end{itemize}
+
+\subsection{Criterios de aceptacion (ejemplos)}
+\begin{itemize}
+  \item CA-01: Al redimensionar ventana, el trazo previo permanece visible y proporcional.
+  \item CA-02: Al refrescar, el contador se reconstruye con diferencia de tiempo real.
+  \item CA-03: El sistema no muestra boton de pausa ni permite pausar por atajos.
+  \item CA-04: Galeria no muestra mas de 30 elementos en la vista principal.
+  \item CA-05: Un click en miniatura abre vista expandida y controles de voto.
+\end{itemize}
+
+\section{Plan de Calidad}
+\subsection{Estrategia de pruebas}
+\begin{itemize}
+  \item Unitarias: utilidades de tiempo, ranking y seleccion de palabra.
+  \item Integracion: flujo sesion completa (inicio, dibujo, fin, guardado).
+  \item End-to-end: casos criticos en navegador desktop.
+  \item Regresion visual: canvas y componentes de galeria.
+  \item Pruebas manuales guiadas para UX de dibujo.
+\end{itemize}
+
+\subsection{Matriz minima de pruebas}
+\begin{itemize}
+  \item Navegadores objetivo: Chrome, Edge, Firefox (desktop).
+  \item Resoluciones: 1366x768, 1600x900, 1920x1080, 2560x1440.
+  \item Escenarios: resize agresivo, F5 durante dibujo, fin de tiempo, votos en galeria.
+\end{itemize}
+
+\subsection{Definicion de Done por historia}
+\begin{itemize}
+  \item Criterios de aceptacion validados.
+  \item Sin errores criticos abiertos.
+  \item Cobertura de pruebas actualizada.
+  \item Documentacion tecnica y funcional actualizada.
+  \item Evidencia de QA adjunta en PR.
+\end{itemize}
+
+\section{Plan de Documentacion}
+\subsection{Documentos obligatorios}
+\begin{itemize}
+  \item PRD (Product Requirements Document).
+  \item ADR (Architecture Decision Records).
+  \item Especificacion de API/eventos internos.
+  \item Guia de contribucion y estilo.
+  \item Runbook operativo (incidentes y despliegues).
+  \item Plan de pruebas y reporte de calidad por release.
+\end{itemize}
+
+\subsection{Cadencia de actualizacion}
+\begin{itemize}
+  \item PRD: revision mensual o ante cambios de alcance.
+  \item ADR: uno por decision de arquitectura relevante.
+  \item Runbook: actualizacion por incidente significativo.
+\end{itemize}
+
+\section{Plan de Versionado, CI/CD y Entrega}
+\subsection{Flujo de ramas recomendado}
+\begin{itemize}
+  \item \texttt{main}: estable y desplegable.
+  \item \texttt{develop} (opcional si se requiere): integracion.
+  \item \texttt{feature/*}: trabajo por historia.
+  \item \texttt{hotfix/*}: correcciones urgentes.
+\end{itemize}
+
+\subsection{Politica de commits}
+\begin{itemize}
+  \item Convencion semantica (ejemplo: feat, fix, refactor, docs, test, chore).
+  \item Un cambio logico por commit.
+  \item Mensajes trazables a issue/historia.
+\end{itemize}
+
+\subsection{Pipeline CI minimo}
+\begin{enumerate}
+  \item Lint y formato.
+  \item Tests unitarios.
+  \item Build/verificacion estatica.
+  \item Smoke test de flujo principal.
+  \item Publicacion automatizada a entorno de preview.
+\end{enumerate}
+
+\section{Seguridad, Privacidad y Abuso}
+\begin{itemize}
+  \item Minimizar datos personales almacenados.
+  \item Validar entradas de texto para firma.
+  \item Limitar spam de votos por huella local en etapa inicial.
+  \item Preparar controles anti abuso para etapa backend.
+\end{itemize}
+
+\section{Matriz de Riesgos}
+\begin{longtable}{|p{0.23\textwidth}|p{0.14\textwidth}|p{0.14\textwidth}|p{0.39\textwidth}|}
+\hline
+\textbf{Riesgo} & \textbf{Prob.} & \textbf{Impacto} & \textbf{Mitigacion} \\\hline
+Perdida de dibujo en resize & Media & Alto & Implementar resize con canvas auxiliar y pruebas de regresion visual. \\\hline
+Sesion inconsistente tras F5 & Media & Alto & Persistencia con timestamps y recomputo deterministico del tiempo. \\\hline
+Ranking manipulable & Alta & Medio & Estrategia anti abuso inicial y migracion a backend con controles. \\\hline
+Crecimiento de deuda tecnica & Alta & Alto & Modularizacion temprana, ADRs y code review estricto. \\\hline
+Bajo rendimiento en galeria & Media & Medio & Limite de 30 visibles, lazy rendering y plan de paginacion. \\\hline
+\end{longtable}
+
+\section{KPI y Metricas de Exito}
+\begin{itemize}
+  \item Estabilidad: tasa de errores JS por sesion.
+  \item Rendimiento: tiempo de carga inicial y tiempo de respuesta de interacciones.
+  \item Retencion: usuarios que vuelven al dia siguiente.
+  \item Conversion creativa: porcentaje de sesiones iniciadas que terminan en dibujo compartido.
+  \item Calidad de experiencia: tasa de abandono durante sesion.
+  \item Salud tecnica: cobertura de pruebas y deuda tecnica abierta.
+\end{itemize}
+
+\section{Plan de 30/60/90 dias}
+\subsection{Primeros 30 dias}
+\begin{itemize}
+  \item Etapa 0 y Etapa 1 completadas.
+  \item Base modular, convenciones y pipeline basico activos.
+  \item Backlog refinado y priorizado para 2 sprints siguientes.
+\end{itemize}
+
+\subsection{Dias 31 a 60}
+\begin{itemize}
+  \item Etapa 2 y Etapa 3 completadas.
+  \item Canvas responsivo desktop estable.
+  \item Temporizador persistente y alertas visuales listas.
+\end{itemize}
+
+\subsection{Dias 61 a 90}
+\begin{itemize}
+  \item Etapa 4 y Etapa 5 completadas.
+  \item Galeria con expander y votos en produccion inicial.
+  \item Palabra diaria global de lista de 100 y limpieza diaria validada.
+\end{itemize}
+
+\section{Organizacion y Rituales de Trabajo}
+\subsection{Roles minimos (aunque sea proyecto personal)}
+\begin{itemize}
+  \item Product Owner: prioriza alcance y acepta entregables.
+  \item Tech Lead: define arquitectura y estandares.
+  \item QA Owner: asegura cobertura y evidencia de calidad.
+\end{itemize}
+
+En proyecto personal, una misma persona puede cumplir todos los roles, pero se recomienda separar momentos de trabajo y checklist por rol para evitar sesgos.
+
+\subsection{Rituales recomendados}
+\begin{itemize}
+  \item Planificacion semanal (1 hora).
+  \item Revision de avance y riesgos (30 min, dos veces por semana).
+  \item Demo interna por sprint.
+  \item Retrospectiva corta para mejoras de proceso.
+\end{itemize}
+
+\section{Plan para capacidades futuras (movil y modo oscuro)}
+Estas capacidades se consideran \textbf{futuras} y no bloquean el objetivo actual.
+
+\subsection{Movil}
+\begin{itemize}
+  \item Definir breakpoints y simplificacion de panel de herramientas.
+  \item Replantear interacciones de precision para tactil.
+  \item Evaluar performance en dispositivos de gama media.
+\end{itemize}
+
+\subsection{Modo oscuro}
+\begin{itemize}
+  \item Diseñar sistema de tokens de color.
+  \item Implementar selector de tema y preferencia persistente.
+  \item Validar contraste y accesibilidad (WCAG).
+\end{itemize}
+
+\section{Checklist de Implementacion Inmediata}
+\begin{enumerate}
+  \item Crear tablero de trabajo (issues por epica e historias).
+  \item Definir DoR/DoD y plantillas de PR.
+  \item Ejecutar refactor modular de codigo actual.
+  \item Implementar resize robusto del canvas y limite de historial en 4.
+  \item Implementar persistencia de temporizador para continuidad F5.
+  \item Construir modal de expansion en galeria con like/dislike.
+  \item Ordenar galeria por score y limitar vista a 30.
+  \item Configurar metricas y registro de errores.
+\end{enumerate}
+
+\section{Conclusion}
+El proyecto tiene una base creativa fuerte y una direccion clara. Con este plan por etapas, \textbf{The Daily Scribble} puede evolucionar desde MVP personal hacia una plataforma tecnicamente madura, con entregas predecibles, calidad controlada y capacidad real de crecimiento.
+
+La clave sera mantener disciplina de producto, trazabilidad tecnica y foco en experiencia de usuario en desktop, mientras se prepara la arquitectura para la siguiente fase de escalamiento.
+
+\end{document}
