@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Daily Scribble</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Patrick+Hand&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="floating-doodles" aria-hidden="true">
+      <span>✦</span>
+      <span>❀</span>
+      <span>✿</span>
+      <span>✧</span>
+      <span>❋</span>
+    </div>
+
+    <!-- LANDING PAGE -->
+    <div id="landingView" class="view active">
+      <header class="hero-full">
+        <p class="tag">Un santuario efimero para dibujar sin juicio</p>
+        <h1>The Daily Scribble</h1>
+        <p class="description">Dibuja cada día, comparte tu creación con otros. Explora dibujos hechos por personas alrededor del mundo.</p>
+
+        <div class="cta-buttons">
+          <button id="viewGalleryBtn" class="pill-btn primary">Ver Galería</button>
+          <button id="startDrawingBtn" class="pill-btn">Empezar a Dibujar</button>
+        </div>
+      </header>
+    </div>
+
+    <!-- GALLERY VIEW -->
+    <div id="galleryView" class="view">
+      <div class="view-header">
+        <button id="backFromGalleryBtn" class="back-btn">← Volver</button>
+        <h2>Galería Colectiva</h2>
+      </div>
+
+      <section class="card gallery-full">
+        <div class="duration-filter">
+          <p>Elige una duración:</p>
+          <div class="filter-buttons">
+            <button class="duration-btn active" data-duration="1">1 min</button>
+            <button class="duration-btn" data-duration="5">5 min</button>
+            <button class="duration-btn" data-duration="10">10 min</button>
+            <button class="duration-btn" data-duration="15">15 min</button>
+          </div>
+        </div>
+        <div id="galleryContent" class="gallery-content">
+          <div class="physics-host" id="gallery-1"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- PREPARE CANVAS VIEW -->
+    <div id="prepCanvasView" class="view">
+      <div class="prep-canvas-container">
+        <button id="backFromPrepBtn" class="back-btn">← Volver</button>
+
+        <div class="prep-canvas-content card">
+          <div class="prep-header">
+            <p class="prep-tag">Tu palabra del día es:</p>
+            <h2 id="wordDisplay" class="word-display"></h2>
+          </div>
+
+          <div class="prep-divider"></div>
+
+          <div class="prep-section">
+            <p class="prep-instruction">¿Cuánto tiempo tienes para dibujar?</p>
+            <div class="duration-prep-buttons">
+              <button class="duration-prep-btn" data-minutes="1">1 minuto</button>
+              <button class="duration-prep-btn" data-minutes="5">5 minutos</button>
+              <button class="duration-prep-btn" data-minutes="10">10 minutos</button>
+              <button class="duration-prep-btn" data-minutes="15">15 minutos</button>
+            </div>
+          </div>
+
+          <p class="prep-subtitle">Tu dibujo será compartido en la galería del día.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CANVAS VIEW -->
+    <div id="canvasView" class="view">
+      <div class="view-header">
+        <button id="backFromCanvasBtn" class="back-btn">← Volver</button>
+        <div class="canvas-header-info">
+          <div id="dailyWordCanvas" class="daily-word-canvas"></div>
+          <div class="clock" id="clock">00:00</div>
+        </div>
+      </div>
+
+      <main class="canvas-container">
+        <section class="card studio-full drawing-workspace">
+          <!-- PANEL IZQUIERDO -->
+          <aside class="tools-panel">
+            <div class="panel-section">
+              <h3>Herramienta</h3>
+              <div class="tool-buttons vertical">
+                <button class="tool-btn active" data-tool="brush" title="Pincel">✎</button>
+                <button class="tool-btn" data-tool="eraser" title="Borrador">⊘</button>
+                <button class="tool-btn" data-tool="line" title="Línea">∕</button>
+                <button class="tool-btn" data-tool="rect" title="Rectángulo">▭</button>
+                <button class="tool-btn" data-tool="circle" title="Círculo">●</button>
+                <button class="tool-btn" data-tool="bucket" title="Bote de Pintura">🪣</button>
+                <button class="tool-btn" id="eyedropperBtn" data-tool="eyedropper" title="Gotero">🖍</button>
+              </div>
+            </div>
+
+            <div class="panel-section">
+              <h3>Tamaño</h3>
+              <input id="brushSizeCanvas" class="size-slider" type="range" min="2" max="50" value="8" />
+              <div class="size-display-large"><span id="sizeDisplay">8</span>px</div>
+            </div>
+
+            <div class="panel-section">
+              <h3>Color</h3>
+              <div id="paletteCanvas" class="palette-grid"></div>
+
+              <div class="color-picker-section">
+                <label for="customColorPicker" class="color-picker-label">Color Personalizado:</label>
+                <div class="color-picker-input-wrapper">
+                  <input type="color" id="customColorPicker" class="color-input" value="#000000" />
+                  <button id="addColorBtn" class="add-color-btn" title="Agregar a paleta">+</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-section actions">
+              <button id="undoBtnCanvas" class="icon-btn" title="Deshacer">↶</button>
+              <button id="redoBtnCanvas" class="icon-btn" title="Rehacer">↷</button>
+              <button id="clearBtnCanvas" class="icon-btn" title="Limpiar">🗑</button>
+              <button id="downloadBtnCanvas" class="icon-btn" title="Descargar">↓</button>
+            </div>
+          </aside>
+
+          <!-- CANVAS DERECHO -->
+          <div class="canvas-area">
+            <div class="canvas-shell">
+              <canvas id="drawCanvas" width="900" height="500"></canvas>
+            </div>
+            <div class="canvas-footer">
+              <button id="finishBtnCanvas" class="pill-btn primary" type="button">Terminar y Compartir</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- SIGNATURE MODAL -->
+    <div id="signatureModal" class="modal">
+      <div class="modal-content">
+        <h3>¿Deseas firmar tu obra?</h3>
+        <div class="signature-options">
+          <div class="signature-option">
+            <input type="radio" id="anonOption" name="signature" value="anon" checked />
+            <label for="anonOption">Compartir Anónimo</label>
+          </div>
+          <div class="signature-option">
+            <input type="radio" id="namedOption" name="signature" value="named" />
+            <label for="namedOption">Con mi nombre</label>
+          </div>
+        </div>
+        <input type="text" id="signatureInput" class="signature-input" maxlength="24" placeholder="tu nombre (opcional)" />
+        <div class="modal-buttons">
+          <button id="cancelSignatureBtn" class="pill-btn ghost">Cancelar</button>
+          <button id="confirmSignatureBtn" class="pill-btn primary">Compartir</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIME END MODAL -->
+    <div id="timeEndModal" class="modal">
+      <div class="modal-content">
+        <h3>⏸ Se terminó el tiempo</h3>
+        <p>Puedes descargar tu dibujo y publicarlo. Ya no puedes seguir modificando.</p>
+        <div class="modal-buttons">
+          <button id="closeTimeEndBtn" class="pill-btn primary">Entendido</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footnote">
+      <p>Todo se reinicia a las 00:00. La obra es del momento.</p>
+
+      <div class="footer-credits">
+        <div class="credits-text">Creado con ❤️ por Harry & EPN</div>
+
+        <div class="social-links">
+          <a href="https://github.com" target="_blank" rel="noopener" class="social-btn" title="GitHub">
+            <span>⚙️</span>
+          </a>
+          <a href="https://linkedin.com" target="_blank" rel="noopener" class="social-btn" title="LinkedIn">
+            <span>💼</span>
+          </a>
+          <a href="https://buymeacoffee.com" target="_blank" rel="noopener" class="social-btn coffee-btn" title="Buy me a coffee">
+            <span>☕</span>
+          </a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
