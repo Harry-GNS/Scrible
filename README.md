@@ -181,6 +181,29 @@ Body de `POST /drawing/claim`:
 
 Si el usuario ya uso esa duracion en el mismo dia UTC, devuelve `409`.
 
+### Calculadora de costo y escala (R2 + TTL 1 dia)
+
+Se incluyo una calculadora para estimar costo mensual segun trafico real:
+
+- Archivo: `r2-cost-calculator.js`
+- Ejecutar desde la raiz del proyecto:
+
+```bash
+node r2-cost-calculator.js
+```
+
+Puedes ajustar en ese archivo:
+
+- `PRICING`: precios por GB y por millon de operaciones.
+- `SCENARIOS`: imagenes por dia, peso promedio, vistas por imagen, cache hit rate y TTL.
+
+La salida muestra:
+
+- Escrituras y lecturas al origen por dia.
+- GB diarios al origen.
+- GB promedio almacenados con TTL.
+- Costo mensual estimado y desglose por tipo de costo.
+
 ### Registro con Google (MVP)
 
 No necesitas crear contrasena local en la app. El usuario entra con su cuenta de Google y el backend valida el token.
