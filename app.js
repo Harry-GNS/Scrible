@@ -57,6 +57,7 @@ const elements = {
   backFromPrepBtn: document.getElementById("backFromPrepBtn"),
   wordDisplay: document.getElementById("wordDisplay"),
   durationPrepBtns: Array.from(document.querySelectorAll(".duration-prep-btn")),
+  durationGateNotice: document.getElementById("durationGateNotice"),
   timeEndModal: document.getElementById("timeEndModal"),
   closeTimeEndBtn: document.getElementById("closeTimeEndBtn"),
   backendStatus: document.getElementById("backendStatus"),
@@ -319,11 +320,15 @@ function setupEvents() {
   elements.durationPrepBtns.forEach((btn) => {
     btn.addEventListener("click", async () => {
       const minutes = Number(btn.dataset.minutes);
+      setDurationButtonsBusy(true);
+      showDurationGateNotice("Verificando si esta duracion esta disponible para hoy...", "info");
       const allowed = await canStartDuration(minutes);
+      setDurationButtonsBusy(false);
       if (!allowed) {
         return;
       }
 
+      clearDurationGateNotice();
       selectTimer(minutes);
       goToCanvas();
     });
@@ -728,17 +733,43 @@ async function canStartDuration(minutes) {
 
     const data = await response.json();
     if (!data?.allowed) {
-      window.alert(`Ya usaste la duracion de ${minutes} min hoy. Prueba otra duracion.`);
+      showDurationGateNotice(`Ya usaste la duracion de ${minutes} min hoy. Prueba otra duracion.`, "warning");
       return false;
     }
 
     return true;
   } catch (_error) {
-    window.alert("No se pudo validar tu acceso de hoy. Intenta de nuevo en unos segundos.");
+    showDurationGateNotice("No se pudo validar tu acceso de hoy. Intenta de nuevo en unos segundos.", "error");
     return false;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function clearDurationGateNotice() {
+  if (!elements.durationGateNotice) {
+    return;
+  }
+
+  elements.durationGateNotice.hidden = true;
+  elements.durationGateNotice.className = "prep-notice";
+  elements.durationGateNotice.textContent = "";
+}
+
+function showDurationGateNotice(message, tone = "warning") {
+  if (!elements.durationGateNotice) {
+    return;
+  }
+
+  elements.durationGateNotice.hidden = false;
+  elements.durationGateNotice.className = `prep-notice ${tone}`;
+  elements.durationGateNotice.textContent = message;
+}
+
+function setDurationButtonsBusy(isBusy) {
+  elements.durationPrepBtns.forEach((btn) => {
+    btn.disabled = isBusy;
+  });
 }
 
 function startSession() {
@@ -827,12 +858,7 @@ async function uploadArtworkToCloud(blob) {
 
     if (!signResponse.ok) {
       if (signResponse.status === 409) {
-        const payload = await signResponse.json().catch(() => null);
-        const message =
-          payload?.message === "already claimed for this UTC day and duration"
-            ? `Ya usaste la duracion de ${state.selectedMinutes} min hoy. Prueba otra duracion.`
-            : "Ya usaste esta duracion hoy.";
-        window.alert(message);
+        // If this happens, claim state likely changed in another tab/session.
         return null;
       }
 

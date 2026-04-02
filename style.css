@@ -349,6 +349,52 @@ h3 {
   transform: translateY(-1px);
 }
 
+.duration-prep-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+}
+
+.prep-notice {
+  margin-top: 0.2rem;
+  border-radius: 12px;
+  border: 2px solid #9c2f2f;
+  background: linear-gradient(180deg, #fff5f5 0%, #ffe9e9 100%);
+  color: #7a1f1f;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  box-shadow: 0 8px 14px rgba(122, 31, 31, 0.12);
+}
+
+.prep-notice::before {
+  content: "⚠ ";
+  font-weight: 700;
+}
+
+.prep-notice.info {
+  border-color: #2a5b96;
+  background: linear-gradient(180deg, #f3f8ff 0%, #e6f0ff 100%);
+  color: #1f416f;
+  box-shadow: 0 8px 14px rgba(31, 65, 111, 0.12);
+}
+
+.prep-notice.info::before {
+  content: "⌛ ";
+}
+
+.prep-notice.warning {
+  border-color: #9c2f2f;
+  background: linear-gradient(180deg, #fff5f5 0%, #ffe9e9 100%);
+  color: #7a1f1f;
+}
+
+.prep-notice.error {
+  border-color: #7a1f1f;
+  background: linear-gradient(180deg, #fff1f1 0%, #ffdede 100%);
+  color: #611616;
+}
+
 .prep-subtitle {
   font-size: 0.9rem;
   color: var(--forest-soft);
