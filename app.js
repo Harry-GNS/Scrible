@@ -18,6 +18,7 @@ const DURATIONS = [1, 5, 10, 15];
 const API_BASE_URL = localStorage.getItem("scribble-api-base-url") || "http://localhost:3000";
 let googleClientId = "";
 const AUTH_STORAGE_KEY = "scribble-auth-user";
+const ANON_USER_ID_STORAGE_KEY = "scribble-anon-user-id";
 
 // Elements
 const views = {
@@ -316,8 +317,14 @@ function setupEvents() {
 
   // Prep canvas duration buttons
   elements.durationPrepBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      selectTimer(Number(btn.dataset.minutes));
+    btn.addEventListener("click", async () => {
+      const minutes = Number(btn.dataset.minutes);
+      const allowed = await canStartDuration(minutes);
+      if (!allowed) {
+        return;
+      }
+
+      selectTimer(minutes);
       goToCanvas();
     });
   });
@@ -684,6 +691,56 @@ function selectTimer(minutes) {
   startSession();
 }
 
+function getCurrentUserId() {
+  if (state.currentUser?.userId) {
+    return state.currentUser.userId;
+  }
+
+  const existing = localStorage.getItem(ANON_USER_ID_STORAGE_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  const generated = `anon-${crypto.randomUUID()}`;
+  localStorage.setItem(ANON_USER_ID_STORAGE_KEY, generated);
+  return generated;
+}
+
+async function canStartDuration(minutes) {
+  const userId = getCurrentUserId();
+  const params = new URLSearchParams({
+    userId,
+    duration: String(minutes)
+  });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/drawing/eligibility?${params.toString()}`, {
+      method: "GET",
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`eligibility failed: HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data?.allowed) {
+      window.alert(`Ya usaste la duracion de ${minutes} min hoy. Prueba otra duracion.`);
+      return false;
+    }
+
+    return true;
+  } catch (_error) {
+    window.alert("No se pudo validar tu acceso de hoy. Intenta de nuevo en unos segundos.");
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function startSession() {
   if (state.timerId) {
     clearInterval(state.timerId);
@@ -752,7 +809,7 @@ async function uploadArtworkToCloud(blob) {
     return null;
   }
 
-  const userId = state.currentUser?.userId || `anon-${crypto.randomUUID()}`;
+  const userId = getCurrentUserId();
 
   try {
     const signResponse = await fetch(`${API_BASE_URL}/storage/presign-upload`, {
@@ -769,6 +826,16 @@ async function uploadArtworkToCloud(blob) {
     });
 
     if (!signResponse.ok) {
+      if (signResponse.status === 409) {
+        const payload = await signResponse.json().catch(() => null);
+        const message =
+          payload?.message === "already claimed for this UTC day and duration"
+            ? `Ya usaste la duracion de ${state.selectedMinutes} min hoy. Prueba otra duracion.`
+            : "Ya usaste esta duracion hoy.";
+        window.alert(message);
+        return null;
+      }
+
       throw new Error(`sign failed: HTTP ${signResponse.status}`);
     }
 

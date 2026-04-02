@@ -43,12 +43,35 @@ storageRouter.post('/presign-upload', async (req, res) => {
     return;
   }
 
+  if (!drawingService.canClaim(userId, duration)) {
+    res.status(409).json({
+      message: 'already claimed for this UTC day and duration',
+      userId,
+      duration,
+      dayKeyUtc: drawingService.getDayKeyUtc(),
+      allowed: false
+    });
+    return;
+  }
+
   try {
     const signed = await storageService.createUploadUrl({
       userId,
       duration,
       contentType
     });
+
+    const claimed = drawingService.claim(userId, duration);
+    if (!claimed) {
+      res.status(409).json({
+        message: 'already claimed for this UTC day and duration',
+        userId,
+        duration,
+        dayKeyUtc: drawingService.getDayKeyUtc(),
+        allowed: false
+      });
+      return;
+    }
 
     res.status(201).json(signed);
   } catch {
