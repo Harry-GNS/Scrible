@@ -1,6 +1,8 @@
 import cors from 'cors';
 import express from 'express';
 
+import { authRouter } from './modules/auth/auth.module.js';
+import { drawingRouter } from './modules/drawing/drawing.module.js';
 import { healthRouter } from './modules/health/health.module.js';
 
 export function createApp() {
@@ -12,10 +14,14 @@ export function createApp() {
   app.get('/', (_req, res) => {
     res.status(200).json({
       message: 'Scrible backend is running',
-      health: '/health'
+      health: '/health',
+      auth: '/auth',
+      drawing: '/drawing'
     });
   });
   app.use('/health', healthRouter);
+  app.use('/auth', authRouter);
+  app.use('/drawing', drawingRouter);
 
   return app;
 }

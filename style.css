@@ -139,6 +139,34 @@ h3 {
   color: #9c2f2f;
 }
 
+.auth-box {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.auth-status {
+  font-size: 0.95rem;
+  color: var(--forest-soft);
+}
+
+.auth-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--forest-soft);
+}
+
+.google-signin-container {
+  min-height: 44px;
+}
+
+.auth-logout {
+  font-size: 1rem;
+  padding: 0.4rem 1rem;
+}
+
 .cta-buttons {
   display: flex;
   gap: 1rem;

@@ -29,6 +29,13 @@
         <p class="description">Dibuja cada día, comparte tu creación con otros. Explora dibujos hechos por personas alrededor del mundo.</p>
         <p id="backendStatus" class="backend-status checking">Verificando backend...</p>
 
+        <div class="auth-box">
+          <div id="authStatus" class="auth-status">No has iniciado sesion</div>
+          <p class="auth-hint">Registrate o inicia sesion con Google</p>
+          <div id="googleSignInContainer" class="google-signin-container"></div>
+          <button id="logoutBtn" class="pill-btn ghost auth-logout" type="button" hidden>Cerrar sesion</button>
+        </div>
+
         <div class="cta-buttons">
           <button id="viewGalleryBtn" class="pill-btn primary">Ver Galería</button>
           <button id="startDrawingBtn" class="pill-btn">Empezar a Dibujar</button>
@@ -208,6 +215,7 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="app.js"></script>
   </body>
 </html>

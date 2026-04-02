@@ -16,6 +16,8 @@ const PALETTE = [
 const STORAGE_KEY = "daily-scribble-state";
 const DURATIONS = [1, 5, 10, 15];
 const API_BASE_URL = localStorage.getItem("scribble-api-base-url") || "http://localhost:3000";
+let googleClientId = "";
+const AUTH_STORAGE_KEY = "scribble-auth-user";
 
 // Elements
 const views = {
@@ -55,8 +57,11 @@ const elements = {
   wordDisplay: document.getElementById("wordDisplay"),
   durationPrepBtns: Array.from(document.querySelectorAll(".duration-prep-btn")),
   timeEndModal: document.getElementById("timeEndModal"),
-  closeTimeEndBtn: document.getElementById("closeTimeEndBtn")
-  ,backendStatus: document.getElementById("backendStatus")
+  closeTimeEndBtn: document.getElementById("closeTimeEndBtn"),
+  backendStatus: document.getElementById("backendStatus"),
+  authStatus: document.getElementById("authStatus"),
+  googleSignInContainer: document.getElementById("googleSignInContainer"),
+  logoutBtn: document.getElementById("logoutBtn")
 };
 
 // State
@@ -83,7 +88,8 @@ const state = {
     15: []
   },
   eyedropperActive: false,
-  pendingFinish: false
+  pendingFinish: false,
+  currentUser: null
 };
 
 const today = getTodayKey();
@@ -97,6 +103,8 @@ setupEvents();
 hydrateDailyState();
 updateClock(0);
 checkBackendConnection();
+hydrateAuthState();
+initGoogleAuth();
 
 async function checkBackendConnection() {
   if (!elements.backendStatus) {
@@ -127,6 +135,122 @@ async function checkBackendConnection() {
     statusElement.textContent = "Backend no disponible";
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function hydrateAuthState() {
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) {
+    renderAuthState();
+    return;
+  }
+
+  try {
+    state.currentUser = JSON.parse(raw);
+  } catch (error) {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    state.currentUser = null;
+  }
+
+  renderAuthState();
+}
+
+function renderAuthState() {
+  if (!elements.authStatus || !elements.logoutBtn) {
+    return;
+  }
+
+  if (!state.currentUser) {
+    elements.authStatus.textContent = "No has iniciado sesion";
+    elements.logoutBtn.hidden = true;
+    return;
+  }
+
+  elements.authStatus.textContent = `Sesion: ${state.currentUser.name}`;
+  elements.logoutBtn.hidden = false;
+}
+
+async function initGoogleAuth() {
+  if (!elements.googleSignInContainer || !elements.authStatus || !elements.logoutBtn) {
+    return;
+  }
+
+  elements.logoutBtn.addEventListener("click", () => {
+    state.currentUser = null;
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    renderAuthState();
+  });
+
+  try {
+    const configResponse = await fetch(`${API_BASE_URL}/auth/config`);
+    if (configResponse.ok) {
+      const config = await configResponse.json();
+      googleClientId = String(config.googleClientId ?? "").trim();
+    }
+  } catch (error) {
+    elements.authStatus.textContent = "No se pudo leer configuracion de Google";
+    return;
+  }
+
+  if (!googleClientId) {
+    elements.authStatus.textContent = "Google login no configurado en backend (.env)";
+    return;
+  }
+
+  const maxAttempts = 20;
+  let attempts = 0;
+  const poll = setInterval(() => {
+    attempts += 1;
+
+    if (window.google?.accounts?.id) {
+      clearInterval(poll);
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleCredential
+      });
+
+      window.google.accounts.id.renderButton(elements.googleSignInContainer, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        text: "signup_with"
+      });
+      return;
+    }
+
+    if (attempts >= maxAttempts) {
+      clearInterval(poll);
+      elements.authStatus.textContent = "No se pudo cargar Google Sign-In";
+    }
+  }, 250);
+}
+
+async function handleGoogleCredential(response) {
+  if (!response?.credential) {
+    return;
+  }
+
+  try {
+    const apiResponse = await fetch(`${API_BASE_URL}/auth/google`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        credential: response.credential
+      })
+    });
+
+    if (!apiResponse.ok) {
+      throw new Error(`HTTP ${apiResponse.status}`);
+    }
+
+    const data = await apiResponse.json();
+    state.currentUser = data.user;
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
+    renderAuthState();
+  } catch (error) {
+    elements.authStatus.textContent = "Error autenticando con Google";
   }
 }
 

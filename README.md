@@ -155,6 +155,46 @@ npm run dev
 GET /health
 ```
 
+### Regla diaria UTC (MVP)
+
+Se agregó una primera version de regla por dia en UTC para permitir solo 1 intento por duracion para cada usuario.
+
+- Duraciones permitidas: `1`, `5`, `10`, `15` minutos.
+- Clave de dia: `YYYY-MM-DD` en UTC.
+- Estado actual: almacenamiento en memoria (reinicia al reiniciar el server).
+
+Endpoints:
+
+```text
+GET /drawing/eligibility?userId=USER_ID&duration=5
+POST /drawing/claim
+```
+
+Body de `POST /drawing/claim`:
+
+```json
+{
+  "userId": "google-user-id-o-uuid",
+  "duration": 5
+}
+```
+
+Si el usuario ya uso esa duracion en el mismo dia UTC, devuelve `409`.
+
+### Registro con Google (MVP)
+
+No necesitas crear contrasena local en la app. El usuario entra con su cuenta de Google y el backend valida el token.
+
+1. Crea un OAuth Client ID de tipo Web en Google Cloud.
+2. En backend, define `GOOGLE_CLIENT_ID` en `.env`.
+3. Recarga la pagina y usa el boton de Google en la landing.
+
+Endpoint usado por frontend:
+
+```text
+POST /auth/google
+```
+
 ## Persistencia y datos
 
 - Se utiliza localStorage para guardar:
