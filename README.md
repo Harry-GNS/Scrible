@@ -181,6 +181,57 @@ Body de `POST /drawing/claim`:
 
 Si el usuario ya uso esa duracion en el mismo dia UTC, devuelve `409`.
 
+### Storage recomendado: R2 + TTL 1 dia
+
+Se agrego una base backend para subida directa a Cloudflare R2 con URL firmada.
+
+1. Configura variables en `backend/.env`:
+
+```text
+R2_ACCOUNT_ID=...
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=...
+R2_PUBLIC_BASE_URL=...
+R2_SIGNED_URL_TTL_SECONDS=300
+MAX_UPLOAD_BYTES=4194304
+```
+
+2. Endpoints nuevos:
+
+```text
+GET /storage/config
+POST /storage/presign-upload
+```
+
+Body de `POST /storage/presign-upload`:
+
+```json
+{
+  "userId": "google-user-id",
+  "duration": 5,
+  "contentType": "image/webp",
+  "fileSizeBytes": 320000
+}
+```
+
+Respuesta incluye `uploadUrl` (firmada) y `publicUrl`.
+
+3. Flujo recomendado:
+
+- Front pide URL firmada al backend.
+- Front sube directo al `uploadUrl` (PUT).
+- Backend no transporta la imagen.
+
+4. Borrado automatico diario (TTL):
+
+En Cloudflare R2 configura una Lifecycle Rule para el bucket:
+
+- Scope: prefijo `artworks/`
+- Expiration: 1 dia
+
+Con eso las imagenes se eliminan automaticamente sin cron manual.
+
 ### Calculadora de costo y escala (R2 + TTL 1 dia)
 
 Se incluyo una calculadora para estimar costo mensual segun trafico real:

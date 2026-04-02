@@ -424,11 +424,20 @@ function closeSignatureModal() {
   elements.signatureInput.value = "";
 }
 
-function confirmSignature() {
+async function confirmSignature() {
   const isNamed = document.querySelector('input[name="signature"]:checked').value === "named";
   const signature = isNamed ? elements.signatureInput.value.trim() : "";
-  finishSession(signature);
-  closeSignatureModal();
+
+  elements.confirmSignatureBtn.disabled = true;
+  elements.confirmSignatureBtn.textContent = "Subiendo...";
+
+  try {
+    await finishSession(signature);
+    closeSignatureModal();
+  } finally {
+    elements.confirmSignatureBtn.disabled = false;
+    elements.confirmSignatureBtn.textContent = "Compartir";
+  }
 }
 
 function openTimeEndModal() {
@@ -699,7 +708,7 @@ function startSession() {
   }, 1000);
 }
 
-function finishSession(signature = "") {
+async function finishSession(signature = "") {
   if (!state.selectedMinutes) {
     return;
   }
@@ -713,13 +722,16 @@ function finishSession(signature = "") {
   state.drawing = false;
   state.pendingFinish = false;
 
+  const blob = await exportCanvasBlobWithSignature(signature);
+  const uploadedUrl = await uploadArtworkToCloud(blob);
   const dataUrl = exportCanvasWithSignature(signature);
   const item = {
     id: crypto.randomUUID(),
     word: dailyWord,
     minutes: state.selectedMinutes,
     createdAt: Date.now(),
-    image: dataUrl
+    image: uploadedUrl || dataUrl,
+    storage: uploadedUrl ? "cloud" : "local"
   };
 
   state.galleries[state.selectedMinutes].push(item);
@@ -733,6 +745,50 @@ function finishSession(signature = "") {
 
   // Redirect to gallery
   goToGallery();
+}
+
+async function uploadArtworkToCloud(blob) {
+  if (!(blob instanceof Blob)) {
+    return null;
+  }
+
+  const userId = state.currentUser?.userId || `anon-${crypto.randomUUID()}`;
+
+  try {
+    const signResponse = await fetch(`${API_BASE_URL}/storage/presign-upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userId,
+        duration: state.selectedMinutes,
+        contentType: blob.type,
+        fileSizeBytes: blob.size
+      })
+    });
+
+    if (!signResponse.ok) {
+      throw new Error(`sign failed: HTTP ${signResponse.status}`);
+    }
+
+    const signData = await signResponse.json();
+    const uploadResponse = await fetch(signData.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": blob.type
+      },
+      body: blob
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`upload failed: HTTP ${uploadResponse.status}`);
+    }
+
+    return signData.publicUrl;
+  } catch (_error) {
+    return null;
+  }
 }
 
 function updateClock(seconds) {
@@ -781,6 +837,25 @@ function exportCanvasWithSignature(signature = "") {
   offCtx.drawImage(elements.canvas, 0, 0);
   drawSignature(offCtx, off.width, off.height, signature);
   return off.toDataURL("image/png");
+}
+
+function exportCanvasBlobWithSignature(signature = "") {
+  const off = document.createElement("canvas");
+  off.width = elements.canvas.width;
+  off.height = elements.canvas.height;
+  const offCtx = off.getContext("2d");
+  offCtx.drawImage(elements.canvas, 0, 0);
+  drawSignature(offCtx, off.width, off.height, signature);
+
+  return new Promise((resolve) => {
+    off.toBlob(
+      (blob) => {
+        resolve(blob);
+      },
+      "image/webp",
+      0.9
+    );
+  });
 }
 
 function persistDailyState() {
