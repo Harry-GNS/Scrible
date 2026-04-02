@@ -15,6 +15,7 @@ const PALETTE = [
 
 const STORAGE_KEY = "daily-scribble-state";
 const DURATIONS = [1, 5, 10, 15];
+const API_BASE_URL = localStorage.getItem("scribble-api-base-url") || "http://localhost:3000";
 
 // Elements
 const views = {
@@ -55,6 +56,7 @@ const elements = {
   durationPrepBtns: Array.from(document.querySelectorAll(".duration-prep-btn")),
   timeEndModal: document.getElementById("timeEndModal"),
   closeTimeEndBtn: document.getElementById("closeTimeEndBtn")
+  ,backendStatus: document.getElementById("backendStatus")
 };
 
 // State
@@ -94,6 +96,39 @@ initCanvas();
 setupEvents();
 hydrateDailyState();
 updateClock(0);
+checkBackendConnection();
+
+async function checkBackendConnection() {
+  if (!elements.backendStatus) {
+    return;
+  }
+
+  const statusElement = elements.backendStatus;
+  statusElement.className = "backend-status checking";
+  statusElement.textContent = "Verificando backend...";
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      method: "GET",
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    statusElement.className = "backend-status ok";
+    statusElement.textContent = "Backend conectado";
+  } catch (error) {
+    statusElement.className = "backend-status error";
+    statusElement.textContent = "Backend no disponible";
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function getTodayKey() {
   const now = new Date();

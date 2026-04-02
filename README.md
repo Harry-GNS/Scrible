@@ -123,6 +123,38 @@ python -m http.server 5500
 http://localhost:5500
 ```
 
+## Backend
+
+Se agregó una base de backend independiente en `backend/` con Node.js, TypeScript, lint y formato.
+
+### Arranque rápido
+
+1. Entra a la carpeta del backend:
+
+```bash
+cd backend
+```
+
+2. Instala dependencias:
+
+```bash
+npm install
+```
+
+3. Copia `.env.example` a `.env` y ajusta el puerto si hace falta.
+
+4. Inicia en desarrollo:
+
+```bash
+npm run dev
+```
+
+5. Verifica la salud:
+
+```text
+GET /health
+```
+
 ## Persistencia y datos
 
 - Se utiliza localStorage para guardar:

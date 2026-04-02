@@ -118,6 +118,27 @@ h3 {
   line-height: 1.6;
 }
 
+.backend-status {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--forest-soft);
+  background: #fff;
+  font-size: 0.95rem;
+  color: var(--forest-soft);
+}
+
+.backend-status.ok {
+  border-color: #2d7d46;
+  color: #2d7d46;
+}
+
+.backend-status.error {
+  border-color: #9c2f2f;
+  color: #9c2f2f;
+}
+
 .cta-buttons {
   display: flex;
   gap: 1rem;
