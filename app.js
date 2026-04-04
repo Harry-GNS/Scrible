@@ -962,27 +962,7 @@ async function uploadArtworkToCloud(blob, signature = "") {
       throw new Error(`upload failed: HTTP ${uploadResponse.status}`);
     }
 
-    const verifyResponse = await fetch(`${API_BASE_URL}/storage/verify-upload`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        objectKey: signData.objectKey,
-        minBytes: blob.size
-      })
-    });
-
-    if (!verifyResponse.ok) {
-      throw new Error(`verify failed: HTTP ${verifyResponse.status}`);
-    }
-
-    const verifyData = await verifyResponse.json();
-    if (!verifyData?.exists) {
-      throw new Error("object verification failed");
-    }
-
-    const publishResponse = await fetch(`${API_BASE_URL}/drawing/publish`, {
+    const finalizeResponse = await fetch(`${API_BASE_URL}/drawing/finalize-upload`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -992,15 +972,16 @@ async function uploadArtworkToCloud(blob, signature = "") {
         duration: state.selectedMinutes,
         publicUrl: signData.publicUrl,
         objectKey: signData.objectKey,
+        minBytes: blob.size,
         signatureName: signature.trim().slice(0, 24)
       })
     });
 
-    if (!publishResponse.ok) {
+    if (!finalizeResponse.ok) {
       return {
         publicUrl: signData.publicUrl,
         published: false,
-        verified: true
+        verified: false
       };
     }
 

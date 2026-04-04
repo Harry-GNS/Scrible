@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import { drawingService } from './drawing.service.js';
+import { storageService } from '../storage/storage.service.js';
 
 export const drawingRouter = Router();
 
@@ -64,6 +65,35 @@ drawingRouter.get('/eligibility', async (req, res) => {
       duration,
       dayKeyUtc: drawingService.getDayKeyUtc(),
       allowed
+    });
+  } catch {
+    res.status(500).json({
+      message: 'database unavailable'
+    });
+  }
+});
+
+drawingRouter.get('/my-artworks', async (req, res) => {
+  const userId = String(req.query.userId ?? '').trim();
+  const limitInput = Number.parseInt(String(req.query.limit ?? ''), 10);
+
+  if (!userId) {
+    res.status(400).json({ message: 'userId is required' });
+    return;
+  }
+
+  const limit = Number.isFinite(limitInput) ? Math.min(Math.max(limitInput, 1), 200) : 100;
+
+  try {
+    const items = await drawingService.listUserArtworks({
+      userId,
+      limit
+    });
+
+    res.status(200).json({
+      userId,
+      count: items.length,
+      items
     });
   } catch {
     res.status(500).json({
@@ -167,6 +197,80 @@ drawingRouter.post('/publish', async (req, res) => {
   } catch {
     res.status(500).json({
       message: 'database unavailable'
+    });
+  }
+});
+
+drawingRouter.post('/finalize-upload', async (req, res) => {
+  const userId = String(req.body?.userId ?? '').trim();
+  const duration = Number.parseInt(String(req.body?.duration ?? ''), 10);
+  const publicUrl = String(req.body?.publicUrl ?? '').trim();
+  const objectKey = String(req.body?.objectKey ?? '').trim();
+  const signatureName = String(req.body?.signatureName ?? '').trim();
+  const minBytesInput = Number.parseInt(String(req.body?.minBytes ?? ''), 10);
+
+  if (!userId) {
+    res.status(400).json({ message: 'userId is required' });
+    return;
+  }
+
+  if (!Number.isFinite(duration) || !drawingService.isValidDuration(duration)) {
+    res.status(400).json({
+      message: 'duration must be one of 1, 5, 10, 15'
+    });
+    return;
+  }
+
+  if (!publicUrl || !objectKey) {
+    res.status(400).json({ message: 'publicUrl and objectKey are required' });
+    return;
+  }
+
+  try {
+    const verification = await storageService.verifyObjectExists({
+      objectKey,
+      minBytes: Number.isFinite(minBytesInput) && minBytesInput > 0 ? minBytesInput : undefined
+    });
+
+    if (!verification.exists) {
+      res.status(409).json({
+        message: 'cloud object not verified',
+        objectKey,
+        verified: false
+      });
+      return;
+    }
+
+    const published = await drawingService.publishArtwork({
+      userId,
+      duration,
+      objectKey,
+      publicUrl,
+      signatureName: signatureName || undefined
+    });
+
+    if (!published) {
+      res.status(404).json({
+        message: 'no claim found for this UTC day and duration',
+        userId,
+        duration,
+        dayKeyUtc: drawingService.getDayKeyUtc()
+      });
+      return;
+    }
+
+    res.status(200).json({
+      userId,
+      duration,
+      dayKeyUtc: drawingService.getDayKeyUtc(),
+      status: 'PUBLISHED',
+      verified: true,
+      objectKey,
+      sizeBytes: verification.sizeBytes
+    });
+  } catch {
+    res.status(500).json({
+      message: 'finalize upload failed'
     });
   }
 });
