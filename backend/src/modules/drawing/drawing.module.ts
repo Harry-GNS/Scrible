@@ -4,7 +4,7 @@ import { drawingService } from './drawing.service.js';
 
 export const drawingRouter = Router();
 
-drawingRouter.get('/eligibility', (req, res) => {
+drawingRouter.get('/eligibility', async (req, res) => {
   const userId = String(req.query.userId ?? '').trim();
   const duration = Number.parseInt(String(req.query.duration ?? ''), 10);
 
@@ -20,16 +20,22 @@ drawingRouter.get('/eligibility', (req, res) => {
     return;
   }
 
-  const allowed = drawingService.canClaim(userId, duration);
-  res.status(200).json({
-    userId,
-    duration,
-    dayKeyUtc: drawingService.getDayKeyUtc(),
-    allowed
-  });
+  try {
+    const allowed = await drawingService.canClaim(userId, duration);
+    res.status(200).json({
+      userId,
+      duration,
+      dayKeyUtc: drawingService.getDayKeyUtc(),
+      allowed
+    });
+  } catch {
+    res.status(500).json({
+      message: 'database unavailable'
+    });
+  }
 });
 
-drawingRouter.post('/claim', (req, res) => {
+drawingRouter.post('/claim', async (req, res) => {
   const userId = String(req.body?.userId ?? '').trim();
   const duration = Number.parseInt(String(req.body?.duration ?? ''), 10);
 
@@ -45,23 +51,29 @@ drawingRouter.post('/claim', (req, res) => {
     return;
   }
 
-  const claimed = drawingService.claim(userId, duration);
+  try {
+    const claimed = await drawingService.claim(userId, duration);
 
-  if (!claimed) {
-    res.status(409).json({
-      message: 'already claimed for this UTC day and duration',
+    if (!claimed) {
+      res.status(409).json({
+        message: 'already claimed for this UTC day and duration',
+        userId,
+        duration,
+        dayKeyUtc: drawingService.getDayKeyUtc(),
+        allowed: false
+      });
+      return;
+    }
+
+    res.status(201).json({
       userId,
       duration,
       dayKeyUtc: drawingService.getDayKeyUtc(),
-      allowed: false
+      allowed: true
     });
-    return;
+  } catch {
+    res.status(500).json({
+      message: 'database unavailable'
+    });
   }
-
-  res.status(201).json({
-    userId,
-    duration,
-    dayKeyUtc: drawingService.getDayKeyUtc(),
-    allowed: true
-  });
 });

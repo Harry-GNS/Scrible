@@ -16,6 +16,7 @@ export function createApp() {
     res.status(200).json({
       message: 'Scrible backend is running',
       health: '/health',
+      database: '/health',
       auth: '/auth',
       drawing: '/drawing',
       storage: '/storage'

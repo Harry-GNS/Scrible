@@ -1,5 +1,7 @@
 import { OAuth2Client } from 'google-auth-library';
 
+import { prisma } from '../../shared/prisma.js';
+
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? '';
 const oauthClient = new OAuth2Client();
 
@@ -13,6 +15,25 @@ export type GoogleUser = {
   name: string;
   picture: string;
 };
+
+export async function upsertGoogleUser(user: GoogleUser) {
+  return prisma.user.upsert({
+    where: { id: user.userId },
+    update: {
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+      provider: 'google'
+    },
+    create: {
+      id: user.userId,
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+      provider: 'google'
+    }
+  });
+}
 
 export async function verifyGoogleCredential(credential: string): Promise<GoogleUser> {
   if (!googleClientId) {

@@ -155,13 +155,58 @@ npm run dev
 GET /health
 ```
 
+### Base de datos y modelos principales
+
+El backend ya usa Prisma con PostgreSQL para persistir usuarios, prompts diarios, obras y comentarios.
+
+1. Copia la configuración base:
+
+```bash
+cp .env.example .env
+```
+
+2. Si quieres levantar PostgreSQL local con Docker, usa:
+
+```bash
+docker compose up -d
+```
+
+3. Ejecuta la primera migración y el seed:
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+4. Verifica la conexión por API:
+
+```text
+GET /health
+```
+
+La respuesta incluye conteos reales desde la base de datos cuando PostgreSQL está disponible.
+
+### Modelos iniciales
+
+- `User`: perfil autenticado o provisional.
+- `DailyPrompt`: prompt determinista por día UTC.
+- `Artwork`: obra o reserva diaria por usuario y duración.
+- `Comment`: comentarios sobre una obra.
+
+### Endpoints que ahora usan persistencia real
+
+- `POST /auth/google` guarda o actualiza el usuario autenticado.
+- `GET /drawing/eligibility` consulta la base para validar si ya existe una obra para ese día y duración.
+- `POST /drawing/claim` crea la reserva persistida de la obra.
+- `POST /storage/presign-upload` exige una reserva previa y la enlaza con la metadata de subida.
+
 ### Regla diaria UTC (MVP)
 
 Se agregó una primera version de regla por dia en UTC para permitir solo 1 intento por duracion para cada usuario.
 
 - Duraciones permitidas: `1`, `5`, `10`, `15` minutos.
 - Clave de dia: `YYYY-MM-DD` en UTC.
-- Estado actual: almacenamiento en memoria (reinicia al reiniciar el server).
+- Estado actual: almacenamiento persistido en PostgreSQL mediante Prisma.
 
 Endpoints:
 

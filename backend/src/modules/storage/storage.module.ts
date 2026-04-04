@@ -43,9 +43,20 @@ storageRouter.post('/presign-upload', async (req, res) => {
     return;
   }
 
-  if (!drawingService.canClaim(userId, duration)) {
+  let claim: Awaited<ReturnType<typeof drawingService.getClaim>> | null;
+
+  try {
+    claim = await drawingService.getClaim(userId, duration);
+  } catch {
+    res.status(500).json({
+      message: 'database unavailable'
+    });
+    return;
+  }
+
+  if (!claim) {
     res.status(409).json({
-      message: 'already claimed for this UTC day and duration',
+      message: 'claim the drawing first before requesting an upload url',
       userId,
       duration,
       dayKeyUtc: drawingService.getDayKeyUtc(),
@@ -61,17 +72,12 @@ storageRouter.post('/presign-upload', async (req, res) => {
       contentType
     });
 
-    const claimed = drawingService.claim(userId, duration);
-    if (!claimed) {
-      res.status(409).json({
-        message: 'already claimed for this UTC day and duration',
-        userId,
-        duration,
-        dayKeyUtc: drawingService.getDayKeyUtc(),
-        allowed: false
-      });
-      return;
-    }
+    await drawingService.attachUploadDetails({
+      userId,
+      duration,
+      objectKey: signed.objectKey,
+      publicUrl: signed.publicUrl
+    });
 
     res.status(201).json(signed);
   } catch {

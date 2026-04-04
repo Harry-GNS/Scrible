@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id
+  email     String?   @unique
+  name      String?
+  picture   String?
+  provider  String?   @default("google")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  artworks  Artwork[]
+  comments  Comment[]
+}
+
+model DailyPrompt {
+  id        String    @id @default(cuid())
+  dateKey   String    @unique
+  prompt    String
+  source    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  artworks  Artwork[]
+}
+
+model Artwork {
+  id            String       @id @default(cuid())
+  userId        String
+  dailyPromptId  String
+  duration      Int
+  objectKey     String?
+  publicUrl     String?
+  signatureName String?
+  status        String       @default("CLAIMED")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyPrompt   DailyPrompt  @relation(fields: [dailyPromptId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+
+  @@unique([userId, dailyPromptId, duration])
+  @@index([dailyPromptId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  artworkId  String
+  userId     String
+  body       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  artwork    Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([artworkId, createdAt])
+  @@index([userId, createdAt])
+}
