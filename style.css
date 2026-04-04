@@ -111,6 +111,13 @@ h3 {
   font-size: clamp(2.8rem, 5vw, 4.2rem);
 }
 
+.main-logo {
+  display: block;
+  width: min(420px, 88%);
+  height: auto;
+  margin: 0.7rem auto 0;
+}
+
 .description {
   margin-top: 1.5rem;
   font-size: 1.1rem;
