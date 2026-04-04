@@ -2,8 +2,12 @@ import { Router } from 'express';
 
 import { drawingService } from './drawing.service.js';
 import { storageService } from '../storage/storage.service.js';
+import { claimLimiter, finalizeLimiter } from '../../shared/rate-limit.js';
 
 export const drawingRouter = Router();
+
+drawingRouter.use('/claim', claimLimiter);
+drawingRouter.use('/finalize-upload', finalizeLimiter);
 
 drawingRouter.get('/gallery', async (req, res) => {
   const duration = Number.parseInt(String(req.query.duration ?? ''), 10);

@@ -1,9 +1,12 @@
 import { Router } from 'express';
 
 import { drawingService } from '../drawing/drawing.service.js';
+import { storageLimiter } from '../../shared/rate-limit.js';
 import { storageService } from './storage.service.js';
 
 export const storageRouter = Router();
+
+storageRouter.use(storageLimiter);
 
 storageRouter.get('/config', (_req, res) => {
   res.status(200).json(storageService.getConfigStatus());

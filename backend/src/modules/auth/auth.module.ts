@@ -1,8 +1,11 @@
 import { Router } from 'express';
 
 import { getGoogleClientId, upsertGoogleUser, verifyGoogleCredential } from './auth.service.js';
+import { authLimiter } from '../../shared/rate-limit.js';
 
 export const authRouter = Router();
+
+authRouter.use(authLimiter);
 
 authRouter.get('/config', (_req, res) => {
   const googleClientId = getGoogleClientId();
