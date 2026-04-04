@@ -158,6 +158,53 @@ class DrawingService {
     return true;
   }
 
+  async listPublishedGallery(input: {
+    dayKey: string;
+    duration: number;
+    limit: number;
+  }) {
+    const items = await prisma.artwork.findMany({
+      where: {
+        duration: input.duration,
+        status: 'PUBLISHED',
+        publicUrl: {
+          not: null
+        },
+        dailyPrompt: {
+          dateKey: input.dayKey
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: input.limit,
+      select: {
+        id: true,
+        duration: true,
+        publicUrl: true,
+        signatureName: true,
+        createdAt: true,
+        dailyPrompt: {
+          select: {
+            dateKey: true,
+            prompt: true
+          }
+        }
+      }
+    });
+
+    return items.map((item) => ({
+      id: item.id,
+      duration: item.duration,
+      imageUrl: item.publicUrl ?? '',
+      signatureName: item.signatureName,
+      createdAt: item.createdAt,
+      prompt: item.dailyPrompt.prompt,
+      dayKeyUtc: item.dailyPrompt.dateKey,
+      storage: 'cloud' as const
+    }));
+  }
+
   private async ensureUser(userId: string) {
     return prisma.user.upsert({
       where: { id: userId },

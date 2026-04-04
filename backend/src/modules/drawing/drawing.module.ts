@@ -4,6 +4,43 @@ import { drawingService } from './drawing.service.js';
 
 export const drawingRouter = Router();
 
+drawingRouter.get('/gallery', async (req, res) => {
+  const duration = Number.parseInt(String(req.query.duration ?? ''), 10);
+  const dateKeyInput = String(req.query.dateKey ?? '').trim();
+  const limitInput = Number.parseInt(String(req.query.limit ?? ''), 10);
+
+  if (!Number.isFinite(duration) || !drawingService.isValidDuration(duration)) {
+    res.status(400).json({
+      message: 'duration must be one of 1, 5, 10, 15'
+    });
+    return;
+  }
+
+  const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(dateKeyInput)
+    ? dateKeyInput
+    : drawingService.getDayKeyUtc();
+  const limit = Number.isFinite(limitInput) ? Math.min(Math.max(limitInput, 1), 200) : 200;
+
+  try {
+    const items = await drawingService.listPublishedGallery({
+      dayKey: dateKey,
+      duration,
+      limit
+    });
+
+    res.status(200).json({
+      dayKeyUtc: dateKey,
+      duration,
+      count: items.length,
+      items
+    });
+  } catch {
+    res.status(500).json({
+      message: 'database unavailable'
+    });
+  }
+});
+
 drawingRouter.get('/eligibility', async (req, res) => {
   const userId = String(req.query.userId ?? '').trim();
   const duration = Number.parseInt(String(req.query.duration ?? ''), 10);

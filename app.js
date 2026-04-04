@@ -15,6 +15,7 @@ const PALETTE = [
 
 const STORAGE_KEY = "daily-scribble-state";
 const DURATIONS = [1, 5, 10, 15];
+const GALLERY_BATCH_SIZE = 25;
 const API_BASE_URL = localStorage.getItem("scribble-api-base-url") || "http://localhost:3000";
 let googleClientId = "";
 const AUTH_STORAGE_KEY = "scribble-auth-user";
@@ -44,7 +45,9 @@ const elements = {
   backFromGalleryBtn: document.getElementById("backFromGalleryBtn"),
   backFromCanvasBtn: document.getElementById("backFromCanvasBtn"),
   galleryContent: document.getElementById("galleryContent"),
-  durationBtns: Array.from(document.querySelectorAll(".duration-btn")),
+  shuffleGalleryBtn: document.getElementById("shuffleGalleryBtn"),
+  galleryBatchInfo: document.getElementById("galleryBatchInfo"),
+  durationBtns: Array.from(document.querySelectorAll(".duration-btn[data-duration]")),
   toolBtns: Array.from(document.querySelectorAll(".tool-btn")),
   customColorPicker: document.getElementById("customColorPicker"),
   eyedropperBtn: document.getElementById("eyedropperBtn"),
@@ -85,6 +88,18 @@ const state = {
   historyIndex: -1,
   maxHistory: 20,
   galleries: {
+    1: [],
+    5: [],
+    10: [],
+    15: []
+  },
+  galleryPools: {
+    1: [],
+    5: [],
+    10: [],
+    15: []
+  },
+  galleryLastBatchIds: {
     1: [],
     5: [],
     10: [],
@@ -313,9 +328,15 @@ function setupEvents() {
       elements.durationBtns.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       state.selectedDuration = Number(btn.dataset.duration);
-      updateGalleryView();
+      void updateGalleryView();
     });
   });
+
+  if (elements.shuffleGalleryBtn) {
+    elements.shuffleGalleryBtn.addEventListener("click", () => {
+      void updateGalleryView(true);
+    });
+  }
 
   // Prep canvas duration buttons
   elements.durationPrepBtns.forEach((btn) => {
@@ -1110,7 +1131,7 @@ function showView(viewName) {
   state.currentView = viewName;
 
   if (viewName === "gallery") {
-    updateGalleryView();
+    void updateGalleryView();
   }
 }
 
@@ -1153,9 +1174,119 @@ function goToCanvas() {
   showView("canvas");
 }
 
-function updateGalleryView() {
+function updateGalleryBatchInfo(visibleCount, totalCount) {
+  if (!elements.galleryBatchInfo) {
+    return;
+  }
+
+  elements.galleryBatchInfo.textContent = `Mostrando ${visibleCount} de ${totalCount} imagenes publicadas`;
+}
+
+function shuffleArray(input) {
+  const copy = [...input];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+
+  return copy;
+}
+
+async function fetchPublishedGallery(duration) {
+  const params = new URLSearchParams({
+    duration: String(duration),
+    dateKey: today,
+    limit: "200"
+  });
+
+  const response = await fetch(`${API_BASE_URL}/drawing/gallery?${params.toString()}`, {
+    method: "GET"
+  });
+
+  if (!response.ok) {
+    throw new Error(`gallery failed: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  const cloudItems = Array.isArray(data?.items)
+    ? data.items
+        .filter((item) => typeof item?.imageUrl === "string" && item.imageUrl.trim())
+        .map((item) => ({
+          id: String(item.id),
+          image: String(item.imageUrl),
+          minutes: Number(item.duration ?? duration),
+          createdAt: Date.parse(String(item.createdAt ?? "")) || Date.now(),
+          word: dailyWord,
+          storage: "cloud"
+        }))
+    : [];
+
+  return cloudItems;
+}
+
+function pickBatchForDuration(duration, forceShuffle) {
+  const pool = state.galleryPools[duration] || [];
+  if (pool.length <= GALLERY_BATCH_SIZE) {
+    const ids = pool.map((item) => item.id);
+    state.galleryLastBatchIds[duration] = ids;
+    return pool;
+  }
+
+  if (!forceShuffle && state.galleryLastBatchIds[duration].length > 0) {
+    const lastBatch = new Set(state.galleryLastBatchIds[duration]);
+    const stableBatch = pool.filter((item) => lastBatch.has(item.id));
+    if (stableBatch.length === GALLERY_BATCH_SIZE) {
+      return stableBatch;
+    }
+  }
+
+  const previousIds = new Set(state.galleryLastBatchIds[duration]);
+  let candidates = pool.filter((item) => !previousIds.has(item.id));
+  if (candidates.length < GALLERY_BATCH_SIZE) {
+    candidates = pool;
+  }
+
+  const batch = shuffleArray(candidates).slice(0, GALLERY_BATCH_SIZE);
+  state.galleryLastBatchIds[duration] = batch.map((item) => item.id);
+  return batch;
+}
+
+async function updateGalleryView(forceShuffle = false) {
   elements.galleryContent.innerHTML = "";
   const duration = state.selectedDuration;
+
+  if (elements.shuffleGalleryBtn) {
+    elements.shuffleGalleryBtn.disabled = true;
+  }
+
+  if (state.galleryPools[duration].length === 0 || forceShuffle === false) {
+    try {
+      const cloudItems = await fetchPublishedGallery(duration);
+      const localItems = state.galleries[duration] || [];
+      const merged = [...cloudItems, ...localItems];
+      const dedupedByImage = [];
+      const seen = new Set();
+
+      for (const item of merged) {
+        const imageKey = String(item.image ?? "");
+        if (!imageKey || seen.has(imageKey)) {
+          continue;
+        }
+
+        seen.add(imageKey);
+        dedupedByImage.push(item);
+      }
+
+      state.galleryPools[duration] = dedupedByImage.sort((a, b) => b.createdAt - a.createdAt);
+    } catch (_error) {
+      const localItems = state.galleries[duration] || [];
+      state.galleryPools[duration] = [...localItems].sort((a, b) => b.createdAt - a.createdAt);
+    }
+  }
+
+  const visibleItems = pickBatchForDuration(duration, forceShuffle);
+  updateGalleryBatchInfo(visibleItems.length, state.galleryPools[duration].length);
+
   const host = document.createElement("div");
   host.className = "physics-host";
   host.id = `gallery-${duration}`;
@@ -1201,8 +1332,7 @@ function updateGalleryView() {
   Matter.Render.run(render);
 
   // Add existing drawings
-  const items = state.galleries[duration] || [];
-  items.forEach((item, idx) => {
+  visibleItems.forEach((item, idx) => {
     window.setTimeout(() => {
       const w = 120;
       const h = 80;
@@ -1231,6 +1361,10 @@ function updateGalleryView() {
       Matter.World.add(engine.world, body);
     }, idx * 80);
   });
+
+  if (elements.shuffleGalleryBtn) {
+    elements.shuffleGalleryBtn.disabled = state.galleryPools[duration].length <= GALLERY_BATCH_SIZE;
+  }
 }
 
 function randomRange(min, max) {
