@@ -262,6 +262,66 @@ h3 {
   min-height: 400px;
 }
 
+.my-artworks-full {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.my-artworks-header {
+  margin-bottom: 1rem;
+}
+
+.my-artworks-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.my-artwork-card {
+  border: 2px solid rgba(32, 59, 45, 0.2);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  overflow: hidden;
+  box-shadow: 0 8px 16px rgba(32, 59, 45, 0.08);
+}
+
+.my-artwork-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  background: #f5efe0;
+}
+
+.my-artwork-card-body {
+  padding: 0.8rem 0.9rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.my-artwork-title {
+  margin: 0;
+  font-family: "Caveat Brush", cursive;
+  font-size: 1.35rem;
+}
+
+.my-artwork-meta {
+  margin: 0;
+  color: var(--forest-soft);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.my-artworks-empty {
+  border: 2px dashed rgba(32, 59, 45, 0.28);
+  border-radius: 18px;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--forest-soft);
+  background: rgba(255, 255, 255, 0.65);
+}
+
 .physics-host {
   position: relative;
   height: 450px;

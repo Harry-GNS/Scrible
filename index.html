@@ -39,6 +39,7 @@
         <div class="cta-buttons">
           <button id="viewGalleryBtn" class="pill-btn primary">Ver Galería</button>
           <button id="startDrawingBtn" class="pill-btn">Empezar a Dibujar</button>
+          <button id="viewMyArtworksBtn" class="pill-btn ghost">Mis dibujos de hoy</button>
         </div>
       </header>
     </div>
@@ -65,6 +66,21 @@
         <div id="galleryContent" class="gallery-content">
           <div class="physics-host" id="gallery-1"></div>
         </div>
+      </section>
+    </div>
+
+    <!-- MY ARTWORKS VIEW -->
+    <div id="myArtworksView" class="view">
+      <div class="view-header">
+        <button id="backFromMyArtworksBtn" class="back-btn">← Volver</button>
+        <h2>Mis dibujos de hoy</h2>
+      </div>
+
+      <section class="card gallery-full my-artworks-full">
+        <div class="my-artworks-header">
+          <p id="myArtworksMeta" class="gallery-batch-info">Cargando tus obras del dia...</p>
+        </div>
+        <div id="myArtworksContent" class="my-artworks-content"></div>
       </section>
     </div>
 

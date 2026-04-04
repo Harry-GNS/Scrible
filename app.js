@@ -25,6 +25,7 @@ const ANON_USER_ID_STORAGE_KEY = "scribble-anon-user-id";
 const views = {
   landing: document.getElementById("landingView"),
   gallery: document.getElementById("galleryView"),
+  myArtworks: document.getElementById("myArtworksView"),
   prepCanvas: document.getElementById("prepCanvasView"),
   canvas: document.getElementById("canvasView")
 };
@@ -41,12 +42,16 @@ const elements = {
   finishBtnCanvas: document.getElementById("finishBtnCanvas"),
   downloadBtnCanvas: document.getElementById("downloadBtnCanvas"),
   viewGalleryBtn: document.getElementById("viewGalleryBtn"),
+  viewMyArtworksBtn: document.getElementById("viewMyArtworksBtn"),
   startDrawingBtn: document.getElementById("startDrawingBtn"),
   backFromGalleryBtn: document.getElementById("backFromGalleryBtn"),
+  backFromMyArtworksBtn: document.getElementById("backFromMyArtworksBtn"),
   backFromCanvasBtn: document.getElementById("backFromCanvasBtn"),
   galleryContent: document.getElementById("galleryContent"),
   shuffleGalleryBtn: document.getElementById("shuffleGalleryBtn"),
   galleryBatchInfo: document.getElementById("galleryBatchInfo"),
+  myArtworksContent: document.getElementById("myArtworksContent"),
+  myArtworksMeta: document.getElementById("myArtworksMeta"),
   durationBtns: Array.from(document.querySelectorAll(".duration-btn[data-duration]")),
   toolBtns: Array.from(document.querySelectorAll(".tool-btn")),
   customColorPicker: document.getElementById("customColorPicker"),
@@ -324,8 +329,10 @@ function initCanvas() {
 function setupEvents() {
   // Navigation
   elements.viewGalleryBtn.addEventListener("click", () => goToGallery());
+  elements.viewMyArtworksBtn.addEventListener("click", () => goToMyArtworks());
   elements.startDrawingBtn.addEventListener("click", () => goToPrepCanvas());
   elements.backFromGalleryBtn.addEventListener("click", () => goToLanding());
+  elements.backFromMyArtworksBtn.addEventListener("click", () => goToLanding());
   elements.backFromCanvasBtn.addEventListener("click", () => goToLanding());
   elements.backFromPrepBtn.addEventListener("click", () => goToLanding());
 
@@ -1120,6 +1127,8 @@ function showView(viewName) {
 
   if (viewName === "gallery") {
     void updateGalleryView();
+  } else if (viewName === "myArtworks") {
+    void updateMyArtworksView();
   }
 }
 
@@ -1145,6 +1154,10 @@ function goToGallery() {
   showView("gallery");
 }
 
+function goToMyArtworks() {
+  showView("myArtworks");
+}
+
 function goToPrepCanvas() {
   // Reset canvas before going to prep
   state.history = [];
@@ -1160,6 +1173,101 @@ function goToPrepCanvas() {
 function goToCanvas() {
   clearUploadStatus();
   showView("canvas");
+}
+
+function formatArtworkDate(input) {
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) {
+    return "Hoy";
+  }
+
+  return new Intl.DateTimeFormat("es-ES", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
+}
+
+async function fetchMyArtworks() {
+  const userId = getCurrentUserId();
+  const params = new URLSearchParams({
+    userId,
+    limit: "100"
+  });
+
+  const response = await fetch(`${API_BASE_URL}/drawing/my-artworks?${params.toString()}`, {
+    method: "GET"
+  });
+
+  if (!response.ok) {
+    throw new Error(`my artworks failed: HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function renderMyArtworksEmpty(message) {
+  if (!elements.myArtworksContent) {
+    return;
+  }
+
+  elements.myArtworksContent.innerHTML = `
+    <div class="my-artworks-empty">${message}</div>
+  `;
+}
+
+function renderMyArtworks(items) {
+  if (!elements.myArtworksContent) {
+    return;
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    renderMyArtworksEmpty("Aun no tienes dibujos publicados hoy.");
+    return;
+  }
+
+  elements.myArtworksContent.innerHTML = items
+    .map((item) => {
+      const prompt = String(item.prompt ?? "Prompt del dia");
+      const imageUrl = String(item.imageUrl ?? "");
+      const signature = String(item.signatureName ?? "Anónimo");
+      const dayKey = String(item.dayKeyUtc ?? today);
+      const createdAt = formatArtworkDate(item.createdAt);
+
+      return `
+        <article class="my-artwork-card">
+          <img src="${imageUrl}" alt="Dibujo publicado del dia" loading="lazy" />
+          <div class="my-artwork-card-body">
+            <h3 class="my-artwork-title">${prompt}</h3>
+            <p class="my-artwork-meta">${dayKey} · ${createdAt}</p>
+            <p class="my-artwork-meta">Firma: ${signature}</p>
+            <p class="my-artwork-meta">Duracion: ${Number(item.duration ?? 0)} min</p>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+async function updateMyArtworksView() {
+  if (!elements.myArtworksMeta) {
+    return;
+  }
+
+  elements.myArtworksMeta.textContent = "Cargando tus obras publicadas de hoy...";
+  renderMyArtworksEmpty("Cargando...");
+
+  try {
+    const data = await fetchMyArtworks();
+    const count = Number(data?.count ?? 0);
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const currentUserLabel = state.currentUser?.name || "usuario actual";
+
+    elements.myArtworksMeta.textContent = `Mostrando ${count} obra${count === 1 ? "" : "s"} publicad${count === 1 ? "a" : "as"} de hoy para ${currentUserLabel}`;
+    renderMyArtworks(items);
+  } catch (_error) {
+    elements.myArtworksMeta.textContent = "No se pudo cargar tu historial de hoy.";
+    renderMyArtworksEmpty("No se pudo cargar tu historial de hoy.");
+  }
 }
 
 function updateGalleryBatchInfo(visibleCount, totalCount) {
