@@ -110,6 +110,13 @@ const state = {
   currentUser: null
 };
 
+const gallerySceneState = {
+  engine: null,
+  render: null,
+  runner: null,
+  spawnTimeouts: []
+};
+
 const today = getTodayKey();
 const dailyWord = pickWordForToday(today);
 
@@ -1192,6 +1199,34 @@ function shuffleArray(input) {
   return copy;
 }
 
+function destroyGalleryScene() {
+  gallerySceneState.spawnTimeouts.forEach((timeoutId) => {
+    clearTimeout(timeoutId);
+  });
+  gallerySceneState.spawnTimeouts = [];
+
+  if (gallerySceneState.render) {
+    Matter.Render.stop(gallerySceneState.render);
+    const renderCanvas = gallerySceneState.render.canvas;
+    if (renderCanvas?.parentNode) {
+      renderCanvas.parentNode.removeChild(renderCanvas);
+    }
+  }
+
+  if (gallerySceneState.runner) {
+    Matter.Runner.stop(gallerySceneState.runner);
+  }
+
+  if (gallerySceneState.engine) {
+    Matter.World.clear(gallerySceneState.engine.world, false);
+    Matter.Engine.clear(gallerySceneState.engine);
+  }
+
+  gallerySceneState.engine = null;
+  gallerySceneState.render = null;
+  gallerySceneState.runner = null;
+}
+
 async function fetchPublishedGallery(duration) {
   const params = new URLSearchParams({
     duration: String(duration),
@@ -1252,6 +1287,7 @@ function pickBatchForDuration(duration, forceShuffle) {
 }
 
 async function updateGalleryView(forceShuffle = false) {
+  destroyGalleryScene();
   elements.galleryContent.innerHTML = "";
   const duration = state.selectedDuration;
 
@@ -1328,12 +1364,17 @@ async function updateGalleryView(forceShuffle = false) {
   });
 
   Matter.World.add(engine.world, [floor, leftWall, rightWall]);
-  Matter.Runner.run(Matter.Runner.create(), engine);
+  const runner = Matter.Runner.create();
+  Matter.Runner.run(runner, engine);
   Matter.Render.run(render);
+
+  gallerySceneState.engine = engine;
+  gallerySceneState.render = render;
+  gallerySceneState.runner = runner;
 
   // Add existing drawings
   visibleItems.forEach((item, idx) => {
-    window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       const w = 120;
       const h = 80;
 
@@ -1360,10 +1401,12 @@ async function updateGalleryView(forceShuffle = false) {
       Matter.Body.setAngle(body, randomRange(-0.18, 0.18));
       Matter.World.add(engine.world, body);
     }, idx * 80);
+
+    gallerySceneState.spawnTimeouts.push(timeoutId);
   });
 
   if (elements.shuffleGalleryBtn) {
-    elements.shuffleGalleryBtn.disabled = state.galleryPools[duration].length <= GALLERY_BATCH_SIZE;
+    elements.shuffleGalleryBtn.disabled = state.galleryPools[duration].length === 0;
   }
 }
 
