@@ -86,3 +86,30 @@ storageRouter.post('/presign-upload', async (req, res) => {
     });
   }
 });
+
+storageRouter.post('/verify-upload', async (req, res) => {
+  const objectKey = String(req.body?.objectKey ?? '').trim();
+  const minBytes = Number.parseInt(String(req.body?.minBytes ?? ''), 10);
+
+  if (!objectKey) {
+    res.status(400).json({ message: 'objectKey is required' });
+    return;
+  }
+
+  try {
+    const result = await storageService.verifyObjectExists({
+      objectKey,
+      minBytes: Number.isFinite(minBytes) && minBytes > 0 ? minBytes : undefined
+    });
+
+    res.status(200).json({
+      objectKey,
+      exists: result.exists,
+      sizeBytes: result.sizeBytes
+    });
+  } catch {
+    res.status(500).json({
+      message: 'storage verification failed'
+    });
+  }
+});

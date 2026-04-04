@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
 
@@ -120,6 +120,57 @@ export class StorageService {
       expiresInSeconds: this.config.signedUrlTtlSeconds,
       dayKeyUtc,
       maxUploadBytes: this.config.maxUploadBytes
+    };
+  }
+
+  async verifyObjectExists(input: {
+    objectKey: string;
+    minBytes?: number;
+  }): Promise<{
+    exists: boolean;
+    sizeBytes: number | null;
+  }> {
+    this.assertConfigured();
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const response = await this.client.send(
+          new HeadObjectCommand({
+            Bucket: this.config.bucket,
+            Key: input.objectKey
+          })
+        );
+
+        const sizeBytes = typeof response.ContentLength === 'number' ? response.ContentLength : null;
+        if (typeof input.minBytes === 'number' && Number.isFinite(input.minBytes)) {
+          const meetsMinSize = typeof sizeBytes === 'number' && sizeBytes >= input.minBytes;
+          return {
+            exists: meetsMinSize,
+            sizeBytes
+          };
+        }
+
+        return {
+          exists: true,
+          sizeBytes
+        };
+      } catch {
+        if (attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+          continue;
+        }
+
+        return {
+          exists: false,
+          sizeBytes: null
+        };
+      }
+    }
+
+    return {
+      exists: false,
+      sizeBytes: null
     };
   }
 

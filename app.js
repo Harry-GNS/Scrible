@@ -863,9 +863,9 @@ async function finishSession(signature = "") {
   if (uploadResult?.published) {
     showUploadStatus("Publicada en la nube y confirmada en backend.", "ok");
   } else if (uploadedUrl) {
-    showUploadStatus("Subida en nube sin confirmacion final. Revisa backend.", "warning");
+    showUploadStatus("Subida detectada, pero no se confirmo publicacion final.", "warning");
   } else {
-    showUploadStatus("No se pudo subir. Se guardo en galeria local.", "error");
+    showUploadStatus("No hubo confirmacion en cloud. Se guardo en galeria local.", "error");
   }
 
   const dataUrl = exportCanvasWithSignature(signature);
@@ -934,6 +934,26 @@ async function uploadArtworkToCloud(blob, signature = "") {
       throw new Error(`upload failed: HTTP ${uploadResponse.status}`);
     }
 
+    const verifyResponse = await fetch(`${API_BASE_URL}/storage/verify-upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        objectKey: signData.objectKey,
+        minBytes: blob.size
+      })
+    });
+
+    if (!verifyResponse.ok) {
+      throw new Error(`verify failed: HTTP ${verifyResponse.status}`);
+    }
+
+    const verifyData = await verifyResponse.json();
+    if (!verifyData?.exists) {
+      throw new Error("object verification failed");
+    }
+
     const publishResponse = await fetch(`${API_BASE_URL}/drawing/publish`, {
       method: "POST",
       headers: {
@@ -951,13 +971,15 @@ async function uploadArtworkToCloud(blob, signature = "") {
     if (!publishResponse.ok) {
       return {
         publicUrl: signData.publicUrl,
-        published: false
+        published: false,
+        verified: true
       };
     }
 
     return {
       publicUrl: signData.publicUrl,
-      published: true
+      published: true,
+      verified: true
     };
   } catch (_error) {
     return null;
