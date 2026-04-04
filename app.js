@@ -323,8 +323,15 @@ function setupEvents() {
       setDurationButtonsBusy(true);
       showDurationGateNotice("Verificando si esta duracion esta disponible para hoy...", "info");
       const allowed = await canStartDuration(minutes);
-      setDurationButtonsBusy(false);
       if (!allowed) {
+        setDurationButtonsBusy(false);
+        return;
+      }
+
+      showDurationGateNotice("Reservando tu intento de hoy para esta duracion...", "info");
+      const claimed = await claimDurationForToday(minutes);
+      setDurationButtonsBusy(false);
+      if (!claimed) {
         return;
       }
 
@@ -740,6 +747,42 @@ async function canStartDuration(minutes) {
     return true;
   } catch (_error) {
     showDurationGateNotice("No se pudo validar tu acceso de hoy. Intenta de nuevo en unos segundos.", "error");
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function claimDurationForToday(minutes) {
+  const userId = getCurrentUserId();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/drawing/claim`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userId,
+        duration: minutes
+      }),
+      signal: controller.signal
+    });
+
+    if (response.status === 409) {
+      showDurationGateNotice(`Ya usaste la duracion de ${minutes} min hoy. Prueba otra duracion.`, "warning");
+      return false;
+    }
+
+    if (!response.ok) {
+      throw new Error(`claim failed: HTTP ${response.status}`);
+    }
+
+    return true;
+  } catch (_error) {
+    showDurationGateNotice("No se pudo reservar tu intento de hoy. Intenta nuevamente.", "error");
     return false;
   } finally {
     clearTimeout(timeout);
