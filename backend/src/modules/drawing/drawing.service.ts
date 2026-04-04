@@ -123,6 +123,41 @@ class DrawingService {
     return true;
   }
 
+  async publishArtwork(input: {
+    userId: string;
+    duration: number;
+    objectKey?: string;
+    publicUrl: string;
+    signatureName?: string;
+  }): Promise<boolean> {
+    const prompt = await this.ensureDailyPrompt(this.getDayKeyUtc());
+    const artwork = await prisma.artwork.findUnique({
+      where: {
+        userId_dailyPromptId_duration: {
+          userId: input.userId,
+          dailyPromptId: prompt.id,
+          duration: input.duration
+        }
+      }
+    });
+
+    if (!artwork) {
+      return false;
+    }
+
+    await prisma.artwork.update({
+      where: { id: artwork.id },
+      data: {
+        objectKey: input.objectKey ?? artwork.objectKey,
+        publicUrl: input.publicUrl,
+        signatureName: input.signatureName ? input.signatureName.trim().slice(0, 24) : null,
+        status: 'PUBLISHED'
+      }
+    });
+
+    return true;
+  }
+
   private async ensureUser(userId: string) {
     return prisma.user.upsert({
       where: { id: userId },

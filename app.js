@@ -63,7 +63,8 @@ const elements = {
   backendStatus: document.getElementById("backendStatus"),
   authStatus: document.getElementById("authStatus"),
   googleSignInContainer: document.getElementById("googleSignInContainer"),
-  logoutBtn: document.getElementById("logoutBtn")
+  logoutBtn: document.getElementById("logoutBtn"),
+  uploadStatus: document.getElementById("uploadStatus")
 };
 
 // State
@@ -853,8 +854,20 @@ async function finishSession(signature = "") {
   state.drawing = false;
   state.pendingFinish = false;
 
+  showUploadStatus("Preparando imagen para publicar...", "info");
+
   const blob = await exportCanvasBlobWithSignature(signature);
-  const uploadedUrl = await uploadArtworkToCloud(blob);
+  const uploadResult = await uploadArtworkToCloud(blob, signature);
+  const uploadedUrl = uploadResult?.publicUrl ?? null;
+
+  if (uploadResult?.published) {
+    showUploadStatus("Publicada en la nube y confirmada en backend.", "ok");
+  } else if (uploadedUrl) {
+    showUploadStatus("Subida en nube sin confirmacion final. Revisa backend.", "warning");
+  } else {
+    showUploadStatus("No se pudo subir. Se guardo en galeria local.", "error");
+  }
+
   const dataUrl = exportCanvasWithSignature(signature);
   const item = {
     id: crypto.randomUUID(),
@@ -878,7 +891,7 @@ async function finishSession(signature = "") {
   goToGallery();
 }
 
-async function uploadArtworkToCloud(blob) {
+async function uploadArtworkToCloud(blob, signature = "") {
   if (!(blob instanceof Blob)) {
     return null;
   }
@@ -921,10 +934,54 @@ async function uploadArtworkToCloud(blob) {
       throw new Error(`upload failed: HTTP ${uploadResponse.status}`);
     }
 
-    return signData.publicUrl;
+    const publishResponse = await fetch(`${API_BASE_URL}/drawing/publish`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userId,
+        duration: state.selectedMinutes,
+        publicUrl: signData.publicUrl,
+        objectKey: signData.objectKey,
+        signatureName: signature.trim().slice(0, 24)
+      })
+    });
+
+    if (!publishResponse.ok) {
+      return {
+        publicUrl: signData.publicUrl,
+        published: false
+      };
+    }
+
+    return {
+      publicUrl: signData.publicUrl,
+      published: true
+    };
   } catch (_error) {
     return null;
   }
+}
+
+function showUploadStatus(message, tone = "info") {
+  if (!elements.uploadStatus) {
+    return;
+  }
+
+  elements.uploadStatus.hidden = false;
+  elements.uploadStatus.className = `upload-status ${tone}`;
+  elements.uploadStatus.textContent = message;
+}
+
+function clearUploadStatus() {
+  if (!elements.uploadStatus) {
+    return;
+  }
+
+  elements.uploadStatus.hidden = true;
+  elements.uploadStatus.className = "upload-status";
+  elements.uploadStatus.textContent = "";
 }
 
 function updateClock(seconds) {
@@ -1042,6 +1099,7 @@ function goToLanding() {
   }
   state.sessionActive = false;
   state.pendingFinish = false;
+  clearUploadStatus();
 
   // Reset canvas
   state.history = [];
@@ -1062,12 +1120,14 @@ function goToPrepCanvas() {
   state.historyIndex = -1;
   clearCanvas(true);
   saveHistory();
+  clearUploadStatus();
 
   elements.wordDisplay.textContent = dailyWord;
   showView("prepCanvas");
 }
 
 function goToCanvas() {
+  clearUploadStatus();
   showView("canvas");
 }
 
