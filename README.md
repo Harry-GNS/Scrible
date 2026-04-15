@@ -218,6 +218,11 @@ Contrato minimo de errores HTTP:
 
 `requestId` aparece en errores globales y 404 para correlacion directa con logs.
 
+Guia de demo funcional de cierre:
+
+- Ver `DEMO_END_TO_END.md` para ejecutar el flujo completo manual y por scripts.
+- Ver `SPRINT_CIERRE_RELEASE.md` para resumen ejecutivo de cierre y checklist go/no-go.
+
 ### Modelos iniciales
 
 - `User`: perfil autenticado o provisional.
@@ -350,6 +355,9 @@ No necesitas crear contrasena local en la app. El usuario entra con su cuenta de
 ```text
 AUTH_ACCESS_TOKEN_SECRET=...
 AUTH_REFRESH_TOKEN_SECRET=...
+AUTH_ACCESS_TOKEN_PREVIOUS_SECRETS=...
+AUTH_REFRESH_TOKEN_PREVIOUS_SECRETS=...
+AUTH_TOKEN_ISSUER=scrible-backend
 ```
 
 Puedes ajustar TTL (en segundos) con:

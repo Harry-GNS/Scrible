@@ -1,33 +1,32 @@
 import { Router } from 'express';
 
 import { drawingService } from '../drawing/drawing.service.js';
+import {
+  getAuthenticatedUserId,
+  rejectIfUserMismatch,
+  requireAuthenticatedRequest
+} from '../../shared/auth-middleware.js';
 import { storageLimiter } from '../../shared/rate-limit.js';
-import { resolveIdentity } from '../../shared/request-auth.js';
 import { storageService } from './storage.service.js';
 
 export const storageRouter = Router();
 
 storageRouter.use(storageLimiter);
+storageRouter.use('/presign-upload', requireAuthenticatedRequest);
 
 storageRouter.get('/config', (_req, res) => {
   res.status(200).json(storageService.getConfigStatus());
 });
 
 storageRouter.post('/presign-upload', async (req, res) => {
-  const identity = resolveIdentity(req, String(req.body?.userId ?? ''), { requireAuth: true });
-  const duration = Number.parseInt(String(req.body?.duration ?? ''), 10);
-  const contentType = String(req.body?.contentType ?? '').trim().toLowerCase();
-  const fileSizeBytes = Number.parseInt(String(req.body?.fileSizeBytes ?? ''), 10);
-
-  if (!identity.ok || !identity.userId) {
-    res.status(identity.status ?? 400).json({
-      code: identity.code ?? 'INVALID_USER_IDENTITY',
-      message: identity.message ?? 'invalid user identity'
-    });
+  if (rejectIfUserMismatch(res, String(req.body?.userId ?? ''))) {
     return;
   }
 
-  const userId = identity.userId;
+  const userId = getAuthenticatedUserId(res);
+  const duration = Number.parseInt(String(req.body?.duration ?? ''), 10);
+  const contentType = String(req.body?.contentType ?? '').trim().toLowerCase();
+  const fileSizeBytes = Number.parseInt(String(req.body?.fileSizeBytes ?? ''), 10);
 
   if (!Number.isFinite(duration) || !drawingService.isValidDuration(duration)) {
     res.status(400).json({ message: 'duration must be one of 1, 5, 10, 15' });

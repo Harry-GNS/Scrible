@@ -135,6 +135,7 @@ hydrateDailyState();
 updateClock(0);
 checkBackendConnection();
 hydrateAuthState();
+void validateSessionOnBoot();
 initGoogleAuth();
 
 async function checkBackendConnection() {
@@ -357,6 +358,37 @@ async function refreshAccessToken() {
   }
 }
 
+async function validateSessionOnBoot() {
+  if (!isAuthenticated()) {
+    return;
+  }
+
+  try {
+    const response = await authFetch("/auth/me", { method: "GET" });
+    if (!response.ok) {
+      clearAuthSession();
+      renderAuthState();
+      return;
+    }
+
+    const data = await response.json();
+    if (data?.user) {
+      setAuthSession({
+        user: data.user,
+        tokens: state.authTokens
+      });
+      renderAuthState();
+      return;
+    }
+
+    clearAuthSession();
+    renderAuthState();
+  } catch (_error) {
+    clearAuthSession();
+    renderAuthState();
+  }
+}
+
 async function authFetch(path, init = {}, retried = false) {
   if (!isAuthenticated()) {
     const error = new Error("AUTH_REQUIRED");
@@ -381,7 +413,9 @@ async function authFetch(path, init = {}, retried = false) {
 
   const refreshed = await refreshAccessToken();
   if (!refreshed) {
-    return response;
+    const error = new Error("AUTH_REQUIRED");
+    error.code = "AUTH_REQUIRED";
+    throw error;
   }
 
   return authFetch(path, init, true);

@@ -6,6 +6,7 @@ import { createHmac } from "node:crypto";
 const BASE_URL = process.env.SMOKE_BASE_URL || 'http://localhost:3000';
 const verbose = process.argv.includes('--verbose');
 const ACCESS_SECRET = process.env.AUTH_ACCESS_TOKEN_SECRET || 'dev-access-secret-change-me';
+const TOKEN_ISSUER = process.env.AUTH_TOKEN_ISSUER || 'scrible-backend';
 
 function toBase64Url(value) {
   return Buffer.from(value).toString("base64url");
@@ -21,6 +22,7 @@ function createAccessTokenForUser(userId) {
       name: "Demo User",
       picture: "",
       provider: "smoke",
+      iss: TOKEN_ISSUER,
       tokenType: "access",
       iat: now,
       exp: now + 15 * 60

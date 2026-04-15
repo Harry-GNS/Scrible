@@ -1,6 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
-
-const encoder = new TextEncoder();
+import jwt from 'jsonwebtoken';
 
 type TokenType = 'access' | 'refresh';
 
@@ -27,11 +25,14 @@ export type TokenPair = {
 
 const accessSecret = process.env.AUTH_ACCESS_TOKEN_SECRET ?? 'dev-access-secret-change-me';
 const refreshSecret = process.env.AUTH_REFRESH_TOKEN_SECRET ?? 'dev-refresh-secret-change-me';
+const accessPreviousSecrets = parseSecretList(process.env.AUTH_ACCESS_TOKEN_PREVIOUS_SECRETS);
+const refreshPreviousSecrets = parseSecretList(process.env.AUTH_REFRESH_TOKEN_PREVIOUS_SECRETS);
 const accessTtlSeconds = parsePositiveInt(process.env.AUTH_ACCESS_TOKEN_TTL_SECONDS, 15 * 60);
 const refreshTtlSeconds = parsePositiveInt(
   process.env.AUTH_REFRESH_TOKEN_TTL_SECONDS,
   30 * 24 * 60 * 60
 );
+const tokenIssuer = process.env.AUTH_TOKEN_ISSUER ?? 'scrible-backend';
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   const value = Number.parseInt(String(raw ?? ''), 10);
@@ -41,56 +42,33 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   return value;
 }
 
-function toBase64Url(value: string): string {
-  return Buffer.from(value).toString('base64url');
-}
-
-function fromBase64Url(value: string): string {
-  return Buffer.from(value, 'base64url').toString('utf8');
-}
-
-function signMessage(message: string, secret: string): string {
-  return createHmac('sha256', encoder.encode(secret)).update(message).digest('base64url');
-}
-
-function timingSafeEqualStrings(a: string, b: string): boolean {
-  const aBytes = encoder.encode(a);
-  const bBytes = encoder.encode(b);
-  if (aBytes.length !== bBytes.length) {
-    return false;
-  }
-  return timingSafeEqual(aBytes, bBytes);
+function parseSecretList(raw: string | undefined): string[] {
+  return String(raw ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function createJwt(payload: AuthTokenPayload, secret: string): string {
-  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body = toBase64Url(JSON.stringify(payload));
-  const signingInput = `${header}.${body}`;
-  const signature = signMessage(signingInput, secret);
-  return `${signingInput}.${signature}`;
+  return jwt.sign(payload, secret, {
+    algorithm: 'HS256',
+    noTimestamp: true,
+    issuer: tokenIssuer
+  });
 }
 
 function decodeAndVerifyJwt(token: string, secret: string): AuthTokenPayload | null {
-  const parts = token.split('.');
-  if (parts.length !== 3) {
-    return null;
-  }
-
-  const [headerPart, bodyPart, signaturePart] = parts;
-  const signingInput = `${headerPart}.${bodyPart}`;
-  const expectedSignature = signMessage(signingInput, secret);
-
-  if (!timingSafeEqualStrings(signaturePart, expectedSignature)) {
-    return null;
-  }
-
   try {
-    const header = JSON.parse(fromBase64Url(headerPart)) as { alg?: string; typ?: string };
-    if (header.alg !== 'HS256' || header.typ !== 'JWT') {
+    const decoded = jwt.verify(token, secret, {
+      algorithms: ['HS256'],
+      issuer: tokenIssuer
+    });
+
+    if (typeof decoded !== 'object' || decoded === null) {
       return null;
     }
 
-    const payload = JSON.parse(fromBase64Url(bodyPart)) as AuthTokenPayload;
+    const payload = decoded as AuthTokenPayload;
     if (!payload?.sub || !payload?.exp || !payload?.iat) {
       return null;
     }
@@ -104,6 +82,22 @@ function decodeAndVerifyJwt(token: string, secret: string): AuthTokenPayload | n
   } catch {
     return null;
   }
+}
+
+function decodeAndVerifyWithFallback(token: string, currentSecret: string, previousSecrets: string[]): AuthTokenPayload | null {
+  const withCurrent = decodeAndVerifyJwt(token, currentSecret);
+  if (withCurrent) {
+    return withCurrent;
+  }
+
+  for (const previousSecret of previousSecrets) {
+    const withPrevious = decodeAndVerifyJwt(token, previousSecret);
+    if (withPrevious) {
+      return withPrevious;
+    }
+  }
+
+  return null;
 }
 
 function buildPayload(base: TokenBasePayload, tokenType: TokenType, ttlSeconds: number): AuthTokenPayload {
@@ -129,7 +123,7 @@ export function issueTokenPair(user: TokenBasePayload): TokenPair {
 }
 
 export function verifyAccessToken(token: string): AuthTokenPayload | null {
-  const payload = decodeAndVerifyJwt(token, accessSecret);
+  const payload = decodeAndVerifyWithFallback(token, accessSecret, accessPreviousSecrets);
   if (!payload || payload.tokenType !== 'access') {
     return null;
   }
@@ -137,7 +131,7 @@ export function verifyAccessToken(token: string): AuthTokenPayload | null {
 }
 
 export function verifyRefreshToken(token: string): AuthTokenPayload | null {
-  const payload = decodeAndVerifyJwt(token, refreshSecret);
+  const payload = decodeAndVerifyWithFallback(token, refreshSecret, refreshPreviousSecrets);
   if (!payload || payload.tokenType !== 'refresh') {
     return null;
   }

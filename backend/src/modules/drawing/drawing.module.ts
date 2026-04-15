@@ -2,13 +2,21 @@ import { Router } from 'express';
 
 import { drawingService } from './drawing.service.js';
 import { storageService } from '../storage/storage.service.js';
+import {
+  getAuthenticatedUserId,
+  rejectIfUserMismatch,
+  requireAuthenticatedRequest
+} from '../../shared/auth-middleware.js';
 import { claimLimiter, finalizeLimiter } from '../../shared/rate-limit.js';
-import { resolveIdentity } from '../../shared/request-auth.js';
 
 export const drawingRouter = Router();
 
 drawingRouter.use('/claim', claimLimiter);
 drawingRouter.use('/finalize-upload', finalizeLimiter);
+drawingRouter.use(
+  ['/eligibility', '/my-artworks', '/claim', '/publish', '/finalize-upload'],
+  requireAuthenticatedRequest
+);
 
 drawingRouter.get('/gallery', async (req, res) => {
   const duration = Number.parseInt(String(req.query.duration ?? ''), 10);
@@ -48,18 +56,12 @@ drawingRouter.get('/gallery', async (req, res) => {
 });
 
 drawingRouter.get('/eligibility', async (req, res) => {
-  const identity = resolveIdentity(req, String(req.query.userId ?? ''), { requireAuth: true });
-  const duration = Number.parseInt(String(req.query.duration ?? ''), 10);
-
-  if (!identity.ok || !identity.userId) {
-    res.status(identity.status ?? 400).json({
-      code: identity.code ?? 'INVALID_USER_IDENTITY',
-      message: identity.message ?? 'invalid user identity'
-    });
+  if (rejectIfUserMismatch(res, String(req.query.userId ?? ''))) {
     return;
   }
 
-  const userId = identity.userId;
+  const userId = getAuthenticatedUserId(res);
+  const duration = Number.parseInt(String(req.query.duration ?? ''), 10);
 
   if (!Number.isFinite(duration) || !drawingService.isValidDuration(duration)) {
     res.status(400).json({
@@ -84,18 +86,12 @@ drawingRouter.get('/eligibility', async (req, res) => {
 });
 
 drawingRouter.get('/my-artworks', async (req, res) => {
-  const identity = resolveIdentity(req, String(req.query.userId ?? ''), { requireAuth: true });
-  const limitInput = Number.parseInt(String(req.query.limit ?? ''), 10);
-
-  if (!identity.ok || !identity.userId) {
-    res.status(identity.status ?? 400).json({
-      code: identity.code ?? 'INVALID_USER_IDENTITY',
-      message: identity.message ?? 'invalid user identity'
-    });
+  if (rejectIfUserMismatch(res, String(req.query.userId ?? ''))) {
     return;
   }
 
-  const userId = identity.userId;
+  const userId = getAuthenticatedUserId(res);
+  const limitInput = Number.parseInt(String(req.query.limit ?? ''), 10);
 
   const limit = Number.isFinite(limitInput) ? Math.min(Math.max(limitInput, 1), 200) : 100;
 
@@ -118,18 +114,12 @@ drawingRouter.get('/my-artworks', async (req, res) => {
 });
 
 drawingRouter.post('/claim', async (req, res) => {
-  const identity = resolveIdentity(req, String(req.body?.userId ?? ''), { requireAuth: true });
-  const duration = Number.parseInt(String(req.body?.duration ?? ''), 10);
-
-  if (!identity.ok || !identity.userId) {
-    res.status(identity.status ?? 400).json({
-      code: identity.code ?? 'INVALID_USER_IDENTITY',
-      message: identity.message ?? 'invalid user identity'
-    });
+  if (rejectIfUserMismatch(res, String(req.body?.userId ?? ''))) {
     return;
   }
 
-  const userId = identity.userId;
+  const userId = getAuthenticatedUserId(res);
+  const duration = Number.parseInt(String(req.body?.duration ?? ''), 10);
 
   if (!Number.isFinite(duration) || !drawingService.isValidDuration(duration)) {
     res.status(400).json({
@@ -166,21 +156,15 @@ drawingRouter.post('/claim', async (req, res) => {
 });
 
 drawingRouter.post('/publish', async (req, res) => {
-  const identity = resolveIdentity(req, String(req.body?.userId ?? ''), { requireAuth: true });
+  if (rejectIfUserMismatch(res, String(req.body?.userId ?? ''))) {
+    return;
+  }
+
+  const userId = getAuthenticatedUserId(res);
   const duration = Number.parseInt(String(req.body?.duration ?? ''), 10);
   const publicUrl = String(req.body?.publicUrl ?? '').trim();
   const objectKey = String(req.body?.objectKey ?? '').trim();
   const signatureName = String(req.body?.signatureName ?? '').trim();
-
-  if (!identity.ok || !identity.userId) {
-    res.status(identity.status ?? 400).json({
-      code: identity.code ?? 'INVALID_USER_IDENTITY',
-      message: identity.message ?? 'invalid user identity'
-    });
-    return;
-  }
-
-  const userId = identity.userId;
 
   if (!Number.isFinite(duration) || !drawingService.isValidDuration(duration)) {
     res.status(400).json({
@@ -227,22 +211,16 @@ drawingRouter.post('/publish', async (req, res) => {
 });
 
 drawingRouter.post('/finalize-upload', async (req, res) => {
-  const identity = resolveIdentity(req, String(req.body?.userId ?? ''), { requireAuth: true });
+  if (rejectIfUserMismatch(res, String(req.body?.userId ?? ''))) {
+    return;
+  }
+
+  const userId = getAuthenticatedUserId(res);
   const duration = Number.parseInt(String(req.body?.duration ?? ''), 10);
   const publicUrl = String(req.body?.publicUrl ?? '').trim();
   const objectKey = String(req.body?.objectKey ?? '').trim();
   const signatureName = String(req.body?.signatureName ?? '').trim();
   const minBytesInput = Number.parseInt(String(req.body?.minBytes ?? ''), 10);
-
-  if (!identity.ok || !identity.userId) {
-    res.status(identity.status ?? 400).json({
-      code: identity.code ?? 'INVALID_USER_IDENTITY',
-      message: identity.message ?? 'invalid user identity'
-    });
-    return;
-  }
-
-  const userId = identity.userId;
 
   if (!Number.isFinite(duration) || !drawingService.isValidDuration(duration)) {
     res.status(400).json({
