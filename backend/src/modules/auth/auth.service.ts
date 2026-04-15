@@ -16,6 +16,30 @@ export type GoogleUser = {
   picture: string;
 };
 
+export type AuthUserProfile = {
+  userId: string;
+  email: string;
+  name: string;
+  picture: string;
+  provider: string;
+};
+
+export function normalizeAuthProfile(input: {
+  userId: string;
+  email?: string | null;
+  name?: string | null;
+  picture?: string | null;
+  provider?: string | null;
+}): AuthUserProfile {
+  return {
+    userId: input.userId,
+    email: input.email ?? '',
+    name: input.name ?? 'Usuario',
+    picture: input.picture ?? '',
+    provider: input.provider ?? 'google'
+  };
+}
+
 export async function upsertGoogleUser(user: GoogleUser) {
   return prisma.user.upsert({
     where: { id: user.userId },
@@ -32,6 +56,31 @@ export async function upsertGoogleUser(user: GoogleUser) {
       picture: user.picture,
       provider: 'google'
     }
+  });
+}
+
+export async function findUserProfileById(userId: string): Promise<AuthUserProfile | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      picture: true,
+      provider: true
+    }
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  return normalizeAuthProfile({
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    picture: user.picture,
+    provider: user.provider
   });
 }
 

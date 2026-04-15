@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { drawingService } from '../drawing/drawing.service.js';
 import { storageLimiter } from '../../shared/rate-limit.js';
+import { resolveIdentity } from '../../shared/request-auth.js';
 import { storageService } from './storage.service.js';
 
 export const storageRouter = Router();
@@ -13,15 +14,20 @@ storageRouter.get('/config', (_req, res) => {
 });
 
 storageRouter.post('/presign-upload', async (req, res) => {
-  const userId = String(req.body?.userId ?? '').trim();
+  const identity = resolveIdentity(req, String(req.body?.userId ?? ''), { requireAuth: true });
   const duration = Number.parseInt(String(req.body?.duration ?? ''), 10);
   const contentType = String(req.body?.contentType ?? '').trim().toLowerCase();
   const fileSizeBytes = Number.parseInt(String(req.body?.fileSizeBytes ?? ''), 10);
 
-  if (!userId) {
-    res.status(400).json({ message: 'userId is required' });
+  if (!identity.ok || !identity.userId) {
+    res.status(identity.status ?? 400).json({
+      code: identity.code ?? 'INVALID_USER_IDENTITY',
+      message: identity.message ?? 'invalid user identity'
+    });
     return;
   }
+
+  const userId = identity.userId;
 
   if (!Number.isFinite(duration) || !drawingService.isValidDuration(duration)) {
     res.status(400).json({ message: 'duration must be one of 1, 5, 10, 15' });

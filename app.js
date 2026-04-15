@@ -19,7 +19,7 @@ const GALLERY_BATCH_SIZE = 25;
 const API_BASE_URL = localStorage.getItem("scribble-api-base-url") || "http://localhost:3000";
 let googleClientId = "";
 const AUTH_STORAGE_KEY = "scribble-auth-user";
-const ANON_USER_ID_STORAGE_KEY = "scribble-anon-user-id";
+const AUTH_SESSION_VERSION = 2;
 
 // Elements
 const views = {
@@ -112,7 +112,8 @@ const state = {
   },
   eyedropperActive: false,
   pendingFinish: false,
-  currentUser: null
+  currentUser: null,
+  authTokens: null
 };
 
 const gallerySceneState = {
@@ -176,13 +177,57 @@ function hydrateAuthState() {
   }
 
   try {
-    state.currentUser = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (parsed?.version === AUTH_SESSION_VERSION && parsed.user && parsed.tokens) {
+      state.currentUser = parsed.user;
+      state.authTokens = parsed.tokens;
+    } else {
+      state.currentUser = null;
+      state.authTokens = null;
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
   } catch (error) {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     state.currentUser = null;
+    state.authTokens = null;
   }
 
   renderAuthState();
+}
+
+function clearAuthSession() {
+  state.currentUser = null;
+  state.authTokens = null;
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function setAuthSession(payload) {
+  if (!payload?.user || !payload?.tokens?.accessToken || !payload?.tokens?.refreshToken) {
+    clearAuthSession();
+    return;
+  }
+
+  state.currentUser = payload.user;
+  state.authTokens = {
+    accessToken: String(payload.tokens.accessToken),
+    refreshToken: String(payload.tokens.refreshToken),
+    accessTokenExpiresInSeconds: Number(payload.tokens.accessTokenExpiresInSeconds || 0),
+    refreshTokenExpiresInSeconds: Number(payload.tokens.refreshTokenExpiresInSeconds || 0)
+  };
+
+  localStorage.setItem(
+    AUTH_STORAGE_KEY,
+    JSON.stringify({
+      version: AUTH_SESSION_VERSION,
+      user: state.currentUser,
+      tokens: state.authTokens,
+      updatedAt: Date.now()
+    })
+  );
+}
+
+function isAuthenticated() {
+  return Boolean(state.authTokens?.accessToken);
 }
 
 function renderAuthState() {
@@ -206,8 +251,7 @@ async function initGoogleAuth() {
   }
 
   elements.logoutBtn.addEventListener("click", () => {
-    state.currentUser = null;
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    clearAuthSession();
     renderAuthState();
   });
 
@@ -276,12 +320,71 @@ async function handleGoogleCredential(response) {
     }
 
     const data = await apiResponse.json();
-    state.currentUser = data.user;
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
+    setAuthSession(data);
     renderAuthState();
   } catch (error) {
     elements.authStatus.textContent = "Error autenticando con Google";
   }
+}
+
+async function refreshAccessToken() {
+  const refreshToken = String(state.authTokens?.refreshToken || "").trim();
+  if (!refreshToken) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ refreshToken })
+    });
+
+    if (!response.ok) {
+      clearAuthSession();
+      renderAuthState();
+      return false;
+    }
+
+    const data = await response.json();
+    setAuthSession(data);
+    renderAuthState();
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+async function authFetch(path, init = {}, retried = false) {
+  if (!isAuthenticated()) {
+    const error = new Error("AUTH_REQUIRED");
+    error.code = "AUTH_REQUIRED";
+    throw error;
+  }
+
+  const accessToken = String(state.authTokens?.accessToken || "");
+  const headers = {
+    ...(init.headers || {}),
+    Authorization: `Bearer ${accessToken}`
+  };
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers
+  });
+
+  if (response.status !== 401 || retried) {
+    return response;
+  }
+
+  const refreshed = await refreshAccessToken();
+  if (!refreshed) {
+    return response;
+  }
+
+  return authFetch(path, init, true);
 }
 
 function getTodayKey() {
@@ -356,6 +459,11 @@ function setupEvents() {
   elements.durationPrepBtns.forEach((btn) => {
     btn.addEventListener("click", async () => {
       const minutes = Number(btn.dataset.minutes);
+      if (!isAuthenticated()) {
+        showDurationGateNotice("Inicia sesion con Google para reservar y dibujar hoy.", "warning");
+        return;
+      }
+
       setDurationButtonsBusy(true);
       showDurationGateNotice("Verificando si esta duracion esta disponible para hoy...", "info");
       const allowed = await canStartDuration(minutes);
@@ -739,25 +847,8 @@ function selectTimer(minutes) {
   startSession();
 }
 
-function getCurrentUserId() {
-  if (state.currentUser?.userId) {
-    return state.currentUser.userId;
-  }
-
-  const existing = localStorage.getItem(ANON_USER_ID_STORAGE_KEY);
-  if (existing) {
-    return existing;
-  }
-
-  const generated = `anon-${crypto.randomUUID()}`;
-  localStorage.setItem(ANON_USER_ID_STORAGE_KEY, generated);
-  return generated;
-}
-
 async function canStartDuration(minutes) {
-  const userId = getCurrentUserId();
   const params = new URLSearchParams({
-    userId,
     duration: String(minutes)
   });
 
@@ -765,7 +856,7 @@ async function canStartDuration(minutes) {
   const timeout = setTimeout(() => controller.abort(), 4000);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/drawing/eligibility?${params.toString()}`, {
+    const response = await authFetch(`/drawing/eligibility?${params.toString()}`, {
       method: "GET",
       signal: controller.signal
     });
@@ -781,7 +872,12 @@ async function canStartDuration(minutes) {
     }
 
     return true;
-  } catch (_error) {
+  } catch (error) {
+    if (error?.code === "AUTH_REQUIRED") {
+      showDurationGateNotice("Tu sesion expiro. Inicia sesion nuevamente.", "warning");
+      return false;
+    }
+
     showDurationGateNotice("No se pudo validar tu acceso de hoy. Intenta de nuevo en unos segundos.", "error");
     return false;
   } finally {
@@ -790,18 +886,16 @@ async function canStartDuration(minutes) {
 }
 
 async function claimDurationForToday(minutes) {
-  const userId = getCurrentUserId();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/drawing/claim`, {
+    const response = await authFetch(`/drawing/claim`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        userId,
         duration: minutes
       }),
       signal: controller.signal
@@ -817,7 +911,12 @@ async function claimDurationForToday(minutes) {
     }
 
     return true;
-  } catch (_error) {
+  } catch (error) {
+    if (error?.code === "AUTH_REQUIRED") {
+      showDurationGateNotice("Tu sesion expiro. Inicia sesion nuevamente.", "warning");
+      return false;
+    }
+
     showDurationGateNotice("No se pudo reservar tu intento de hoy. Intenta nuevamente.", "error");
     return false;
   } finally {
@@ -931,16 +1030,13 @@ async function uploadArtworkToCloud(blob, signature = "") {
     return null;
   }
 
-  const userId = getCurrentUserId();
-
   try {
-    const signResponse = await fetch(`${API_BASE_URL}/storage/presign-upload`, {
+    const signResponse = await authFetch(`/storage/presign-upload`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        userId,
         duration: state.selectedMinutes,
         contentType: blob.type,
         fileSizeBytes: blob.size
@@ -969,13 +1065,12 @@ async function uploadArtworkToCloud(blob, signature = "") {
       throw new Error(`upload failed: HTTP ${uploadResponse.status}`);
     }
 
-    const finalizeResponse = await fetch(`${API_BASE_URL}/drawing/finalize-upload`, {
+    const finalizeResponse = await authFetch(`/drawing/finalize-upload`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        userId,
         duration: state.selectedMinutes,
         publicUrl: signData.publicUrl,
         objectKey: signData.objectKey,
@@ -1188,13 +1283,11 @@ function formatArtworkDate(input) {
 }
 
 async function fetchMyArtworks() {
-  const userId = getCurrentUserId();
   const params = new URLSearchParams({
-    userId,
     limit: "100"
   });
 
-  const response = await fetch(`${API_BASE_URL}/drawing/my-artworks?${params.toString()}`, {
+  const response = await authFetch(`/drawing/my-artworks?${params.toString()}`, {
     method: "GET"
   });
 
@@ -1253,6 +1346,12 @@ async function updateMyArtworksView() {
     return;
   }
 
+  if (!isAuthenticated()) {
+    elements.myArtworksMeta.textContent = "Inicia sesion con Google para ver tus dibujos de hoy.";
+    renderMyArtworksEmpty("Inicia sesion con Google para ver tus dibujos de hoy.");
+    return;
+  }
+
   elements.myArtworksMeta.textContent = "Cargando tus obras publicadas de hoy...";
   renderMyArtworksEmpty("Cargando...");
 
@@ -1264,7 +1363,13 @@ async function updateMyArtworksView() {
 
     elements.myArtworksMeta.textContent = `Mostrando ${count} obra${count === 1 ? "" : "s"} publicad${count === 1 ? "a" : "as"} de hoy para ${currentUserLabel}`;
     renderMyArtworks(items);
-  } catch (_error) {
+  } catch (error) {
+    if (error?.code === "AUTH_REQUIRED") {
+      elements.myArtworksMeta.textContent = "Tu sesion expiro. Inicia sesion nuevamente.";
+      renderMyArtworksEmpty("Tu sesion expiro. Inicia sesion nuevamente.");
+      return;
+    }
+
     elements.myArtworksMeta.textContent = "No se pudo cargar tu historial de hoy.";
     renderMyArtworksEmpty("No se pudo cargar tu historial de hoy.");
   }

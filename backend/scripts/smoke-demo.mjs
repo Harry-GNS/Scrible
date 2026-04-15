@@ -1,7 +1,35 @@
 /* eslint-disable no-console */
 
+import "dotenv/config";
+import { createHmac } from "node:crypto";
+
 const BASE_URL = process.env.SMOKE_BASE_URL || 'http://localhost:3000';
 const verbose = process.argv.includes('--verbose');
+const ACCESS_SECRET = process.env.AUTH_ACCESS_TOKEN_SECRET || 'dev-access-secret-change-me';
+
+function toBase64Url(value) {
+  return Buffer.from(value).toString("base64url");
+}
+
+function createAccessTokenForUser(userId) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = toBase64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: userId,
+      email: `${userId}@demo.local`,
+      name: "Demo User",
+      picture: "",
+      provider: "smoke",
+      tokenType: "access",
+      iat: now,
+      exp: now + 15 * 60
+    })
+  );
+  const signingInput = `${header}.${payload}`;
+  const signature = createHmac("sha256", ACCESS_SECRET).update(signingInput).digest("base64url");
+  return `${signingInput}.${signature}`;
+}
 
 function logStep(message) {
   console.log(`[smoke-demo] ${message}`);
@@ -44,11 +72,16 @@ async function run() {
   const userId = `demo-${Date.now()}`;
   const duration = 5;
   const signatureName = 'Demo';
+  const accessToken = createAccessTokenForUser(userId);
+  const authHeaders = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`
+  };
 
   const claim = await request('/drawing/claim', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, duration })
+    headers: authHeaders,
+    body: JSON.stringify({ duration })
   });
   assert(claim.response.status === 201, '/drawing/claim should return 201');
 
@@ -57,9 +90,8 @@ async function run() {
 
   const presign = await request('/storage/presign-upload', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders,
     body: JSON.stringify({
-      userId,
       duration,
       contentType: 'image/webp',
       fileSizeBytes: fakeImageBlob.size
@@ -80,9 +112,8 @@ async function run() {
 
   const finalize = await request('/drawing/finalize-upload', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders,
     body: JSON.stringify({
-      userId,
       duration,
       publicUrl: presign.body.publicUrl,
       objectKey: presign.body.objectKey,
@@ -100,7 +131,12 @@ async function run() {
   const foundInGallery = gallery.body.items.some((item) => item.objectKey === presign.body.objectKey || item.imageUrl === presign.body.publicUrl);
   assert(foundInGallery, 'new demo artwork should appear in gallery response');
 
-  const mine = await request(`/drawing/my-artworks?userId=${encodeURIComponent(userId)}&limit=25`);
+  const mine = await request(`/drawing/my-artworks?limit=25`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
   assert(mine.response.status === 200, '/drawing/my-artworks should return 200');
   assert(Array.isArray(mine.body?.items), 'my-artworks should include items[]');
   const foundInMine = mine.body.items.some((item) => item.objectKey === presign.body.objectKey);
@@ -108,9 +144,8 @@ async function run() {
 
   const finalizeNegative = await request('/drawing/finalize-upload', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders,
     body: JSON.stringify({
-      userId,
       duration,
       publicUrl: `${presign.body.publicUrl}?invalid=1`,
       objectKey: `${presign.body.objectKey}-missing`,

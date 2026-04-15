@@ -12,6 +12,7 @@
     "test:smoke:verbose": "node scripts/smoke-test.mjs --verbose",
     "test:smoke:demo": "node scripts/smoke-demo.mjs",
     "test:smoke:demo:verbose": "node scripts/smoke-demo.mjs --verbose",
+    "test:integration:http": "node scripts/integration-http.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

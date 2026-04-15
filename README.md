@@ -186,6 +186,38 @@ GET /health
 
 La respuesta incluye conteos reales desde la base de datos cuando PostgreSQL está disponible.
 
+### Calidad operativa minima
+
+Comandos recomendados para validacion local:
+
+```bash
+npm run build
+npm run lint
+npm run test:smoke
+npm run test:integration:http
+```
+
+El backend emite logs estructurados en formato JSON por request con:
+
+- `requestId`
+- `method`
+- `path`
+- `statusCode`
+- `durationMs`
+- `ip`
+
+Contrato minimo de errores HTTP:
+
+```json
+{
+  "code": "ERROR_CODE",
+  "message": "descripcion legible",
+  "requestId": "uuid-opcional"
+}
+```
+
+`requestId` aparece en errores globales y 404 para correlacion directa con logs.
+
 ### Modelos iniciales
 
 - `User`: perfil autenticado o provisional.
@@ -211,15 +243,21 @@ Se agregó una primera version de regla por dia en UTC para permitir solo 1 inte
 Endpoints:
 
 ```text
-GET /drawing/eligibility?userId=USER_ID&duration=5
+GET /drawing/eligibility?duration=5
 POST /drawing/claim
 ```
+
+Identidad de usuario para estos endpoints:
+
+- Requerido: enviar `Authorization: Bearer <accessToken>`.
+- El backend toma `userId` desde el token.
+- Si ademas envias `userId` por query/body, debe coincidir con el `sub` del token.
+- Sin token, los endpoints sensibles responden `401`.
 
 Body de `POST /drawing/claim`:
 
 ```json
 {
-  "userId": "google-user-id-o-uuid",
   "duration": 5
 }
 ```
@@ -253,12 +291,13 @@ Body de `POST /storage/presign-upload`:
 
 ```json
 {
-  "userId": "google-user-id",
   "duration": 5,
   "contentType": "image/webp",
   "fileSizeBytes": 320000
 }
 ```
+
+Requiere `Authorization: Bearer <accessToken>`.
 
 Respuesta incluye `uploadUrl` (firmada) y `publicUrl`.
 
@@ -306,13 +345,57 @@ No necesitas crear contrasena local en la app. El usuario entra con su cuenta de
 
 1. Crea un OAuth Client ID de tipo Web en Google Cloud.
 2. En backend, define `GOOGLE_CLIENT_ID` en `.env`.
-3. Recarga la pagina y usa el boton de Google en la landing.
+3. Define secretos de tokens en backend:
+
+```text
+AUTH_ACCESS_TOKEN_SECRET=...
+AUTH_REFRESH_TOKEN_SECRET=...
+```
+
+Puedes ajustar TTL (en segundos) con:
+
+```text
+AUTH_ACCESS_TOKEN_TTL_SECONDS=900
+AUTH_REFRESH_TOKEN_TTL_SECONDS=2592000
+```
+
+4. Recarga la pagina y usa el boton de Google en la landing.
 
 Endpoint usado por frontend:
 
 ```text
 POST /auth/google
 ```
+
+Respuesta relevante de `POST /auth/google`:
+
+```json
+{
+  "user": {
+    "userId": "google-sub",
+    "email": "usuario@email.com",
+    "name": "Usuario",
+    "picture": "https://...",
+    "provider": "google"
+  },
+  "tokens": {
+    "accessToken": "...",
+    "refreshToken": "...",
+    "accessTokenExpiresInSeconds": 900,
+    "refreshTokenExpiresInSeconds": 2592000
+  }
+}
+```
+
+Endpoints nuevos de sesion:
+
+```text
+GET /auth/me
+POST /auth/refresh
+```
+
+- `GET /auth/me`: requiere header `Authorization: Bearer <accessToken>`.
+- `POST /auth/refresh`: requiere body `{ "refreshToken": "..." }` y devuelve un nuevo par de tokens.
 
 ## Persistencia y datos
 
