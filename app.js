@@ -19,7 +19,7 @@ const GALLERY_BATCH_SIZE = 25;
 const API_BASE_URL = localStorage.getItem("scribble-api-base-url") || "http://localhost:3000";
 let googleClientId = "";
 const AUTH_STORAGE_KEY = "scribble-auth-user";
-const AUTH_SESSION_VERSION = 2;
+const AUTH_SESSION_VERSION = 3;
 
 // Elements
 const views = {
@@ -231,6 +231,18 @@ function isAuthenticated() {
   return Boolean(state.authTokens?.accessToken);
 }
 
+function shouldShowGoogleSignIn() {
+  return Boolean(googleClientId) && !isAuthenticated();
+}
+
+function syncGoogleSignInVisibility() {
+  if (!elements.googleSignInContainer) {
+    return;
+  }
+
+  elements.googleSignInContainer.hidden = !shouldShowGoogleSignIn();
+}
+
 function renderAuthState() {
   if (!elements.authStatus || !elements.logoutBtn) {
     return;
@@ -239,11 +251,13 @@ function renderAuthState() {
   if (!state.currentUser) {
     elements.authStatus.textContent = "No has iniciado sesion";
     elements.logoutBtn.hidden = true;
+    syncGoogleSignInVisibility();
     return;
   }
 
   elements.authStatus.textContent = `Sesion: ${state.currentUser.name}`;
   elements.logoutBtn.hidden = false;
+  syncGoogleSignInVisibility();
 }
 
 async function initGoogleAuth() {
@@ -269,6 +283,7 @@ async function initGoogleAuth() {
 
   if (!googleClientId) {
     elements.authStatus.textContent = "Google login no configurado en backend (.env)";
+    syncGoogleSignInVisibility();
     return;
   }
 
@@ -290,6 +305,7 @@ async function initGoogleAuth() {
         shape: "pill",
         text: "signup_with"
       });
+      syncGoogleSignInVisibility();
       return;
     }
 
@@ -305,6 +321,8 @@ async function handleGoogleCredential(response) {
     return;
   }
 
+  elements.authStatus.textContent = "Validando cuenta de Google...";
+
   try {
     const apiResponse = await fetch(`${API_BASE_URL}/auth/google`, {
       method: "POST",
@@ -317,21 +335,52 @@ async function handleGoogleCredential(response) {
     });
 
     if (!apiResponse.ok) {
-      throw new Error(`HTTP ${apiResponse.status}`);
+      let backendMessage = "";
+      try {
+        const errorBody = await apiResponse.json();
+        backendMessage = String(errorBody?.message || "").trim();
+      } catch (_error) {
+        backendMessage = "";
+      }
+
+      throw new Error(backendMessage || `HTTP ${apiResponse.status}`);
     }
 
     const data = await apiResponse.json();
     setAuthSession(data);
     renderAuthState();
+    elements.authStatus.textContent = `Sesion: ${state.currentUser?.name || "Usuario"}`;
   } catch (error) {
-    elements.authStatus.textContent = "Error autenticando con Google";
+    clearAuthSession();
+    renderAuthState();
+    const detail = error instanceof Error ? error.message : "";
+    if (detail === "AUTH_EXPIRED") {
+      elements.authStatus.textContent = "No se pudo validar tu sesion en este momento. Intenta iniciar sesion de nuevo.";
+      return;
+    }
+
+    if (detail === "AUTH_UNAVAILABLE") {
+      elements.authStatus.textContent = "Backend no disponible para validar sesion. Intenta de nuevo en unos segundos.";
+      return;
+    }
+
+    if (detail.includes("invalid google credential")) {
+      elements.authStatus.textContent = "Google rechazo el login. Revisa Client ID y origen autorizado.";
+      return;
+    }
+
+    elements.authStatus.textContent = detail
+      ? `Error autenticando con Google: ${detail}`
+      : "Error autenticando con Google";
   }
 }
 
 async function refreshAccessToken() {
   const refreshToken = String(state.authTokens?.refreshToken || "").trim();
   if (!refreshToken) {
-    return false;
+    clearAuthSession();
+    renderAuthState();
+    return { ok: false, reason: "expired" };
   }
 
   try {
@@ -346,15 +395,15 @@ async function refreshAccessToken() {
     if (!response.ok) {
       clearAuthSession();
       renderAuthState();
-      return false;
+      return { ok: false, reason: "expired" };
     }
 
     const data = await response.json();
     setAuthSession(data);
     renderAuthState();
-    return true;
+    return { ok: true, reason: "ok" };
   } catch (_error) {
-    return false;
+    return { ok: false, reason: "network" };
   }
 }
 
@@ -363,8 +412,18 @@ async function validateSessionOnBoot() {
     return;
   }
 
+  const bootAccessToken = String(state.authTokens?.accessToken || "");
+
+  function sessionChangedSinceBoot() {
+    return String(state.authTokens?.accessToken || "") !== bootAccessToken;
+  }
+
   try {
     const response = await authFetch("/auth/me", { method: "GET" });
+    if (sessionChangedSinceBoot()) {
+      return;
+    }
+
     if (!response.ok) {
       clearAuthSession();
       renderAuthState();
@@ -381,9 +440,17 @@ async function validateSessionOnBoot() {
       return;
     }
 
+    if (sessionChangedSinceBoot()) {
+      return;
+    }
+
     clearAuthSession();
     renderAuthState();
   } catch (_error) {
+    if (sessionChangedSinceBoot()) {
+      return;
+    }
+
     clearAuthSession();
     renderAuthState();
   }
@@ -391,8 +458,8 @@ async function validateSessionOnBoot() {
 
 async function authFetch(path, init = {}, retried = false) {
   if (!isAuthenticated()) {
-    const error = new Error("AUTH_REQUIRED");
-    error.code = "AUTH_REQUIRED";
+    const error = new Error("AUTH_MISSING");
+    error.code = "AUTH_MISSING";
     throw error;
   }
 
@@ -412,13 +479,29 @@ async function authFetch(path, init = {}, retried = false) {
   }
 
   const refreshed = await refreshAccessToken();
-  if (!refreshed) {
-    const error = new Error("AUTH_REQUIRED");
-    error.code = "AUTH_REQUIRED";
+  if (!refreshed.ok) {
+    const error = new Error("AUTH_EXPIRED");
+    error.code = refreshed.reason === "network" ? "AUTH_UNAVAILABLE" : "AUTH_EXPIRED";
     throw error;
   }
 
   return authFetch(path, init, true);
+}
+
+function getAuthNoticeForError(error) {
+  if (error?.code === "AUTH_MISSING") {
+    return "Inicia sesion con Google para continuar.";
+  }
+
+  if (error?.code === "AUTH_EXPIRED") {
+    return "Tu sesion expiro. Inicia sesion nuevamente.";
+  }
+
+  if (error?.code === "AUTH_UNAVAILABLE") {
+    return "No se pudo validar tu sesion por un problema de red/backend. Intenta de nuevo.";
+  }
+
+  return "No se pudo validar tu sesion. Intenta nuevamente.";
 }
 
 function getTodayKey() {
@@ -901,14 +984,14 @@ async function canStartDuration(minutes) {
 
     const data = await response.json();
     if (!data?.allowed) {
-      showDurationGateNotice(`Ya usaste la duracion de ${minutes} min hoy. Prueba otra duracion.`, "warning");
+      showDurationGateNotice(`Ya publicaste la duracion de ${minutes} min hoy. Prueba otra duracion.`, "warning");
       return false;
     }
 
     return true;
   } catch (error) {
-    if (error?.code === "AUTH_REQUIRED") {
-      showDurationGateNotice("Tu sesion expiro. Inicia sesion nuevamente.", "warning");
+    if (error?.code === "AUTH_MISSING" || error?.code === "AUTH_EXPIRED") {
+      showDurationGateNotice(getAuthNoticeForError(error), "warning");
       return false;
     }
 
@@ -936,7 +1019,7 @@ async function claimDurationForToday(minutes) {
     });
 
     if (response.status === 409) {
-      showDurationGateNotice(`Ya usaste la duracion de ${minutes} min hoy. Prueba otra duracion.`, "warning");
+      showDurationGateNotice(`Ya publicaste la duracion de ${minutes} min hoy. Prueba otra duracion.`, "warning");
       return false;
     }
 
@@ -946,8 +1029,8 @@ async function claimDurationForToday(minutes) {
 
     return true;
   } catch (error) {
-    if (error?.code === "AUTH_REQUIRED") {
-      showDurationGateNotice("Tu sesion expiro. Inicia sesion nuevamente.", "warning");
+    if (error?.code === "AUTH_MISSING" || error?.code === "AUTH_EXPIRED") {
+      showDurationGateNotice(getAuthNoticeForError(error), "warning");
       return false;
     }
 
@@ -1398,9 +1481,10 @@ async function updateMyArtworksView() {
     elements.myArtworksMeta.textContent = `Mostrando ${count} obra${count === 1 ? "" : "s"} publicad${count === 1 ? "a" : "as"} de hoy para ${currentUserLabel}`;
     renderMyArtworks(items);
   } catch (error) {
-    if (error?.code === "AUTH_REQUIRED") {
-      elements.myArtworksMeta.textContent = "Tu sesion expiro. Inicia sesion nuevamente.";
-      renderMyArtworksEmpty("Tu sesion expiro. Inicia sesion nuevamente.");
+    if (error?.code === "AUTH_MISSING" || error?.code === "AUTH_EXPIRED") {
+      const authMessage = getAuthNoticeForError(error);
+      elements.myArtworksMeta.textContent = authMessage;
+      renderMyArtworksEmpty(authMessage);
       return;
     }
 

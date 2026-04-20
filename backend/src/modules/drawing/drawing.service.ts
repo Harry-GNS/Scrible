@@ -46,14 +46,40 @@ class DrawingService {
           duration
         }
       },
-      select: { id: true }
+      select: { status: true }
     });
 
-    return artwork === null;
+    if (!artwork) {
+      return true;
+    }
+
+    // Only a published artwork should block the day+duration combination.
+    return artwork.status !== 'PUBLISHED';
   }
 
-  async claim(userId: string, duration: number): Promise<boolean> {
+  async claim(userId: string, duration: number): Promise<'CREATED' | 'REUSED' | 'ALREADY_PUBLISHED'> {
     const prompt = await this.ensureDailyPrompt(this.getDayKeyUtc());
+    const existing = await prisma.artwork.findUnique({
+      where: {
+        userId_dailyPromptId_duration: {
+          userId,
+          dailyPromptId: prompt.id,
+          duration
+        }
+      },
+      select: {
+        status: true
+      }
+    });
+
+    if (existing) {
+      if (existing.status === 'PUBLISHED') {
+        return 'ALREADY_PUBLISHED';
+      }
+
+      return 'REUSED';
+    }
+
     await this.ensureUser(userId);
 
     try {
@@ -66,10 +92,27 @@ class DrawingService {
         }
       });
 
-      return true;
+      return 'CREATED';
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        return false;
+        const duplicate = await prisma.artwork.findUnique({
+          where: {
+            userId_dailyPromptId_duration: {
+              userId,
+              dailyPromptId: prompt.id,
+              duration
+            }
+          },
+          select: {
+            status: true
+          }
+        });
+
+        if (duplicate?.status === 'PUBLISHED') {
+          return 'ALREADY_PUBLISHED';
+        }
+
+        return 'REUSED';
       }
 
       throw error;

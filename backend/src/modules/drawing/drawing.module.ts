@@ -129,15 +129,26 @@ drawingRouter.post('/claim', async (req, res) => {
   }
 
   try {
-    const claimed = await drawingService.claim(userId, duration);
+    const claimResult = await drawingService.claim(userId, duration);
 
-    if (!claimed) {
+    if (claimResult === 'ALREADY_PUBLISHED') {
       res.status(409).json({
         message: 'already claimed for this UTC day and duration',
         userId,
         duration,
         dayKeyUtc: drawingService.getDayKeyUtc(),
         allowed: false
+      });
+      return;
+    }
+
+    if (claimResult === 'REUSED') {
+      res.status(200).json({
+        userId,
+        duration,
+        dayKeyUtc: drawingService.getDayKeyUtc(),
+        allowed: true,
+        reused: true
       });
       return;
     }

@@ -12,7 +12,7 @@ type TokenBasePayload = {
 
 export type AuthTokenPayload = TokenBasePayload & {
   tokenType: TokenType;
-  iat: number;
+  iat?: number;
   exp: number;
 };
 
@@ -69,7 +69,7 @@ function decodeAndVerifyJwt(token: string, secret: string): AuthTokenPayload | n
     }
 
     const payload = decoded as AuthTokenPayload;
-    if (!payload?.sub || !payload?.exp || !payload?.iat) {
+    if (!payload?.sub || !payload?.exp) {
       return null;
     }
 

@@ -94,7 +94,15 @@ async function run() {
     }
   });
   assert(eligibility.response.status === 200, '/drawing/eligibility should return 200');
-  assert(eligibility.body?.allowed === false, 'eligibility should be false after claiming same day/duration');
+  assert(eligibility.body?.allowed === true, 'eligibility should remain true until artwork is published');
+
+  const claimAgain = await request('/drawing/claim', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ duration })
+  });
+  assert(claimAgain.response.status === 200, '/drawing/claim should be idempotent while artwork is not published');
+  assert(claimAgain.body?.reused === true, 'second claim should indicate reused=true');
 
   const myArtworks = await request(`/drawing/my-artworks?limit=10`, {
     method: "GET",
