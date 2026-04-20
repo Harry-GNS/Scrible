@@ -17,6 +17,7 @@ model User {
   updatedAt DateTime  @updatedAt
   artworks  Artwork[]
   comments  Comment[]
+  likes     Like[]
 }
 
 model DailyPrompt {
@@ -43,6 +44,7 @@ model Artwork {
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   dailyPrompt   DailyPrompt  @relation(fields: [dailyPromptId], references: [id], onDelete: Cascade)
   comments      Comment[]
+  likes         Like[]
 
   @@unique([userId, dailyPromptId, duration])
   @@index([dailyPromptId, createdAt])
@@ -61,4 +63,17 @@ model Comment {
 
   @@index([artworkId, createdAt])
   @@index([userId, createdAt])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  artworkId String
+  userId    String
+  createdAt DateTime @default(now())
+  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([artworkId, userId])
+  @@index([artworkId])
+  @@index([userId])
 }

@@ -282,3 +282,57 @@ drawingRouter.post('/finalize-upload', async (req, res) => {
     });
   }
 });
+
+drawingRouter.post('/:artworkId/like', requireAuthenticatedRequest, async (req, res) => {
+  const artworkId = String(req.params.artworkId ?? '').trim();
+  const userId = getAuthenticatedUserId(res);
+
+  if (!artworkId) {
+    res.status(400).json({ message: 'artworkId is required' });
+    return;
+  }
+
+  try {
+    const result = await drawingService.toggleLike(artworkId, userId);
+
+    if (result.message) {
+      res.status(404).json({
+        message: result.message,
+        artworkId
+      });
+      return;
+    }
+
+    res.status(201).json({
+      artworkId,
+      userId,
+      liked: result.liked
+    });
+  } catch {
+    res.status(500).json({
+      message: 'database unavailable'
+    });
+  }
+});
+
+drawingRouter.get('/:artworkId/likes', async (req, res) => {
+  const artworkId = String(req.params.artworkId ?? '').trim();
+
+  if (!artworkId) {
+    res.status(400).json({ message: 'artworkId is required' });
+    return;
+  }
+
+  try {
+    const count = await drawingService.getLikeCount(artworkId);
+
+    res.status(200).json({
+      artworkId,
+      count
+    });
+  } catch {
+    res.status(500).json({
+      message: 'database unavailable'
+    });
+  }
+});

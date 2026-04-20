@@ -254,6 +254,69 @@ class DrawingService {
     }));
   }
 
+  async toggleLike(artworkId: string, userId: string): Promise<{ liked: boolean; message?: string }> {
+    const artwork = await prisma.artwork.findUnique({
+      where: { id: artworkId },
+      select: { id: true }
+    });
+
+    if (!artwork) {
+      return { liked: false, message: 'Artwork not found' };
+    }
+
+    await this.ensureUser(userId);
+
+    try {
+      await prisma.like.create({
+        data: {
+          artworkId,
+          userId
+        }
+      });
+
+      return { liked: true };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        try {
+          await prisma.like.delete({
+            where: {
+              artworkId_userId: {
+                artworkId,
+                userId
+              }
+            }
+          });
+
+          return { liked: false };
+        } catch {
+          return { liked: false, message: 'Failed to unlike' };
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  async getLikeCount(artworkId: string): Promise<number> {
+    return prisma.like.count({
+      where: { artworkId }
+    });
+  }
+
+  async userLikedArtwork(artworkId: string, userId: string): Promise<boolean> {
+    const like = await prisma.like.findUnique({
+      where: {
+        artworkId_userId: {
+          artworkId,
+          userId
+        }
+      },
+      select: { id: true }
+    });
+
+    return like !== null;
+  }
+
   private async ensureUser(userId: string) {
     return prisma.user.upsert({
       where: { id: userId },
